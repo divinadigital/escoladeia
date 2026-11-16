@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Área do professor — Escola de IA</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<div id="topo"></div>
+<main class="dash" id="conteudo"><div class="wrap">
+  <div class="dash__head"><div><span class="eyebrow">Área do professor</span><h1 id="ola">Estúdio</h1></div><a class="btn btn--primary magnetic" href="editor.html">+ Novo curso</a></div>
+  <div class="kpis">
+    <div class="kpi"><span>Cursos</span><b id="kC">–</b><small id="kCp"></small></div>
+    <div class="kpi"><span>Alunos</span><b id="kA">–</b><small>matrículas nos seus cursos</small></div>
+    <div class="kpi"><span>Receita bruta</span><b id="kR">–</b><small>soma das matrículas</small></div>
+    <div class="kpi"><span>Aulas assistidas</span><b id="kF">–</b><small>conclusões registradas</small></div>
+  </div>
+  <div class="cols">
+    <div class="panel"><h2>Meus cursos</h2><div class="row-list" id="lista"><div><div class="sk" style="height:40px;width:100%"></div></div></div></div>
+    <div class="panel"><h2>Matrículas recentes</h2><div class="row-list" id="recentes"></div></div>
+  </div>
+</div></main>
+<div id="rodape"></div>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  const { $, api, esc, capa, exigir, brl, moeda, avatar, dataBR } = EIA;
+  const u = await exigir('professor');
+  $('#ola').innerHTML = `Olá, <span class="serif">${esc(u.nome.split(' ')[0])}</span>.`;
+  const j = await api('estudio');
+  const STATUS = { publicado: ['ok', 'Publicado'], rascunho: ['light', 'Rascunho'], em_analise: ['warn', 'Em análise'] };
+  $('#kC').textContent = j.cursos.length; $('#kCp').textContent = j.cursos.filter(c => c.status === 'publicado').length + ' publicados';
+  $('#kA').textContent = j.cursos.reduce((s, c) => s + c.alunos, 0);
+  $('#kR').textContent = moeda(j.cursos.reduce((s, c) => s + c.receita, 0)).replace(/,\d\d$/, '');
+  $('#kF').textContent = j.cursos.reduce((s, c) => s + c.conclusoes, 0);
+  $('#lista').innerHTML = j.cursos.length ? j.cursos.map(c => `<div>
+      <span style="width:72px;flex:none;border-radius:10px;overflow:hidden;aspect-ratio:16/10">${capa(c.slug, c.cor, c.titulo)}</span>
+      <span style="flex:1;min-width:0"><b style="font-weight:550">${esc(c.titulo)}</b><br><span class="muted" style="font-size:13px">${c.aulas} aulas · ${c.alunos} alunos · ${brl(c.preco)}</span></span>
+      <span class="tag tag--${STATUS[c.status][0]}">${STATUS[c.status][1]}</span>
+      <a class="btn btn--ghost btn--sm" href="editor.html?id=${c.id}">Editar</a>
+      <a class="btn btn--quiet btn--sm" href="curso.html?c=${c.slug}" aria-label="Ver página do curso">Ver</a></div>`).join('')
+    : '<div class="empty" style="display:block;border:1px dashed var(--line-2)">Você ainda não criou cursos. <a href="editor.html" style="color:var(--text);text-decoration:underline">Criar o primeiro</a></div>';
+  $('#recentes').innerHTML = j.recentes.length ? j.recentes.map(r => `<div>${avatar(r.nome, 32)}<span style="flex:1;min-width:0;line-height:1.35"><b style="font-weight:550;font-size:14px">${esc(r.nome)}</b><br><span class="muted" style="font-size:12.5px">${esc(r.titulo)}</span></span><span class="mono muted" style="font-size:12px">${dataBR(r.criado)}</span></div>`).join('') : '<div class="muted">Nenhuma matrícula ainda.</div>';
+})();
+</script>
+</body>
+</html>

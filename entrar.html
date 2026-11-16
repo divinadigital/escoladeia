@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Entrar — Escola de IA</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<div id="topo"></div>
+<main class="auth">
+  <aside class="auth__side" id="lado">
+    <canvas id="ladoRede" aria-hidden="true"></canvas>
+    <span class="eyebrow" style="color:rgb(242 243 238 / .6)" id="ladoEye">Área do aluno</span>
+    <div>
+      <h2 id="ladoTitulo">Continue de onde <span class="serif">parou</span>.</h2>
+      <p id="ladoTexto" style="margin-top:16px">Seus cursos, sua próxima aula e o progresso de cada trilha num só lugar.</p>
+    </div>
+    <div class="auth__quote" id="ladoQuote">“Em duas semanas automatizei a triagem dos e-mails do escritório. O curso foi direto ao ponto.”<br><span style="opacity:.6;font-size:13px">Aluna da trilha de Automação</span></div>
+  </aside>
+
+  <section class="auth__main">
+    <div class="auth__card">
+      <div class="tabs tabs--role" id="tabsPerfil" role="tablist" aria-label="Tipo de conta">
+        <button type="button" role="tab" data-v="aluno" aria-selected="true">Aluno</button>
+        <button type="button" role="tab" data-v="professor">Professor</button>
+        <button type="button" role="tab" data-v="parceiro">Parceiro</button>
+      </div>
+      <h1 id="titulo">Entrar como aluno</h1>
+      <p class="muted" id="sub">Use o e-mail e a senha da sua conta de aluno.</p>
+
+      <form id="form" novalidate>
+        <label class="field" id="fNome" hidden><span>Nome completo</span><input class="input" name="nome" autocomplete="name" placeholder="Como quer ser chamado"></label>
+        <label class="field"><span>E-mail</span><input class="input" type="email" name="email" autocomplete="email" required placeholder="voce@email.com"></label>
+        <label class="field"><span>Senha</span><input class="input" type="password" name="senha" autocomplete="current-password" required minlength="6" placeholder="••••••••"><small id="dicaSenha" hidden>Mínimo de 6 caracteres.</small></label>
+        <fieldset id="fTipo" hidden style="border:0;padding:0;margin:0" class="field">
+          <span style="font-size:13.5px;font-weight:500">Como você quer participar?</span>
+          <div class="ptype">
+            <label><input type="radio" name="parceiro_tipo" value="afiliado"><b>Afiliado</b>Divulgo cursos</label>
+            <label><input type="radio" name="parceiro_tipo" value="criador"><b>Criador</b>Publico aulas</label>
+            <label><input type="radio" name="parceiro_tipo" value="ambos" checked><b>Os dois</b>Divulgo e publico</label>
+          </div>
+        </fieldset>
+        <div class="form-err" id="erro" aria-live="assertive"><div><p></p></div></div>
+        <button class="btn btn--primary btn--lg" type="submit" id="enviar">Entrar</button>
+      </form>
+
+      <p style="margin-top:20px;font-size:14.5px" class="muted" id="troca"></p>
+      <div class="demo-hint" id="demo"></div>
+    </div>
+  </section>
+</main>
+<script src="assets/app.js"></script>
+<script>
+(() => {
+  const { $, api, abas, rede, eu, PAINEL, qs } = EIA;
+  rede($('#ladoRede'), { cor: '#d4ff3a', tinta: '#f2f3ee', densidade: 8000, host: $('#lado') });
+
+  const PERFIS = {
+    aluno: { eye: 'Área do aluno', t: 'Continue de onde <span class="serif">parou</span>.', p: 'Seus cursos, sua próxima aula e o progresso de cada trilha num só lugar.', demo: ['aluno@escoladeia.test', 'aluno123'] },
+    professor: { eye: 'Área do professor', t: 'Ensine o que você <span class="serif">domina</span>.', p: 'Monte cursos em módulos e aulas, publique na hora e acompanhe matrículas, conclusões e receita.', demo: ['professor@escoladeia.test', 'prof123'] },
+    parceiro: { eye: 'Área do parceiro', t: 'Divulgue, publique, <span class="serif">receba</span>.', p: 'Gere links de afiliado, acompanhe cliques e comissões, e envie seus próprios cursos para o portal.', demo: ['parceiro@escoladeia.test', 'parceiro123'] },
+    admin: { eye: 'Coordenação', t: 'Curadoria do <span class="serif">portal</span>.', p: 'Aprove cursos enviados por parceiros e acompanhe os números da escola.', demo: ['admin@escoladeia.test', 'admin123'] },
+  };
+  const NOME = { aluno: 'aluno', professor: 'professor', parceiro: 'parceiro', admin: 'coordenação' };
+  let perfil = PERFIS[qs('perfil')] ? qs('perfil') : 'aluno';
+  let modo = qs('modo') === 'cadastro' && perfil !== 'admin' ? 'cadastro' : 'entrar';
+  const volta = qs('volta');
+
+  // já logado no perfil certo? vai direto para o painel
+  eu().then(u => { if (u && u.papel === perfil && !volta) location.replace(PAINEL[u.papel]); });
+
+  const tabs = abas($('#tabsPerfil'), v => { perfil = v; history.replaceState(null, '', `?perfil=${v}${modo === 'cadastro' ? '&modo=cadastro' : ''}`); pintar(); });
+  if (perfil === 'admin') $('#tabsPerfil').hidden = true; else tabs.set(perfil);
+
+  function pintar() {
+    const P = PERFIS[perfil], cad = modo === 'cadastro';
+    $('#ladoEye').textContent = P.eye; $('#ladoTitulo').innerHTML = P.t; $('#ladoTexto').textContent = P.p;
+    $('#ladoQuote').hidden = perfil !== 'aluno';
+    $('#titulo').textContent = (cad ? 'Criar conta de ' : 'Entrar como ') + NOME[perfil];
+    $('#sub').textContent = cad
+      ? { aluno: 'Grátis. O curso de Fundamentos já fica liberado.', professor: 'Para professores da escola. Você publica direto no portal.', parceiro: 'Para afiliados e criadores de conteúdo.' }[perfil]
+      : `Use o e-mail e a senha da sua conta de ${NOME[perfil]}.`;
+    $('#fNome').hidden = !cad; $('#fTipo').hidden = !(cad && perfil === 'parceiro'); $('#dicaSenha').hidden = !cad;
+    $('[name=senha]').autocomplete = cad ? 'new-password' : 'current-password';
+    $('#enviar').textContent = cad ? 'Criar conta' : 'Entrar';
+    $('#troca').innerHTML = perfil === 'admin' ? '' : cad ? 'Já tem conta? <a href="#" data-modo="entrar" style="color:var(--text);text-decoration:underline">Entrar</a>' : 'Ainda não tem conta? <a href="#" data-modo="cadastro" style="color:var(--text);text-decoration:underline">Criar conta de ' + NOME[perfil] + '</a>';
+    $('#demo').innerHTML = cad ? '' : `<b style="color:var(--text)">Ambiente de demonstração.</b> <button type="button" id="usarDemo">Preencher com a conta de teste de ${NOME[perfil]}</button>`;
+    $('#demo').hidden = cad;
+    erro('');
+  }
+  document.addEventListener('click', e => {
+    const a = e.target.closest('[data-modo]'); if (a) { e.preventDefault(); modo = a.dataset.modo; history.replaceState(null, '', `?perfil=${perfil}${modo === 'cadastro' ? '&modo=cadastro' : ''}`); pintar(); $('[name=' + (modo === 'cadastro' ? 'nome' : 'email') + ']').focus(); }
+    if (e.target.id === 'usarDemo') { const [em, se] = PERFIS[perfil].demo; $('[name=email]').value = em; $('[name=senha]').value = se; $('#enviar').focus(); }
+  });
+
+  const erro = msg => {
+    $('#erro p').textContent = msg; $('#erro').classList.toggle('is-on', !!msg);
+    if (msg) { const f = $('#form'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); }
+  };
+
+  $('#form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const f = new FormData(e.target), d = Object.fromEntries(f), btn = $('#enviar');
+    if (!d.email || !d.senha) return erro('Preencha e-mail e senha.');
+    if (modo === 'cadastro' && (d.nome || '').trim().length < 2) return erro('Informe seu nome.');
+    btn.classList.add('is-loading'); erro('');
+    try {
+      const j = await api(modo === 'cadastro' ? 'cadastro' : 'login', { ...d, papel: perfil });
+      EIA.toast(modo === 'cadastro' ? 'Conta criada. Bem-vindo!' : 'Olá, ' + j.usuario.nome.split(' ')[0] + '!');
+      setTimeout(() => location.href = volta && volta.startsWith('/') ? volta : PAINEL[j.usuario.papel], 350);
+    } catch (err) { erro(err.message); btn.classList.remove('is-loading'); }
+  });
+  pintar();
+})();
+</script>
+</body>
+</html>

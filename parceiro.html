@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Área do parceiro — Escola de IA</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<div id="topo"></div>
+<main class="dash" id="conteudo"><div class="wrap">
+  <div class="dash__head"><div><span class="eyebrow">Área do parceiro</span><h1 id="ola">Parceiro</h1></div>
+    <div class="tabs" id="tabsArea"><button type="button" data-v="afiliado" aria-selected="true">Afiliado</button><button type="button" data-v="criador">Meus cursos</button></div></div>
+
+  <section id="areaAfiliado">
+    <div class="kpis">
+      <div class="kpi"><span>Cliques no seu link</span><b id="kK">–</b><small>total</small></div>
+      <div class="kpi"><span>Vendas indicadas</span><b id="kV">–</b><small id="kConv"></small></div>
+      <div class="kpi"><span>Comissão acumulada</span><b id="kC">–</b><small id="kTaxa"></small></div>
+      <div class="kpi"><span>Repasse como criador</span><b id="kR">–</b><small id="kTaxaC"></small></div>
+    </div>
+    <div class="cols">
+      <div style="display:grid;gap:18px">
+        <div class="panel"><h2>Comissão nos últimos 30 dias</h2><svg class="chart" id="grafico" viewBox="0 0 600 170" preserveAspectRatio="none" role="img" aria-label="Gráfico de comissão diária"></svg></div>
+        <div class="panel"><h2>Vendas pelo seu link</h2><div class="row-list" id="vendas"></div></div>
+      </div>
+      <div class="panel spot" style="position:relative;overflow:hidden;isolation:isolate">
+        <h2>Gerar link de afiliado</h2>
+        <label class="field"><span>Curso</span><select class="select" id="selCurso"><option value="">Página inicial da escola</option></select></label>
+        <div class="copy-box" style="margin-top:14px"><span id="link"></span><button class="btn btn--primary btn--sm" id="copiar" type="button" data-spark>Copiar</button></div>
+        <p class="muted" style="font-size:13px;margin:14px 0 0">Quem clicar fica marcado por <b style="color:var(--text)">30 dias</b>. Qualquer matrícula nesse período gera comissão para você.</p>
+        <hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
+        <h2 style="font-size:16px">Texto pronto para divulgar</h2>
+        <p class="muted" id="pitch" style="font-size:14px;margin:0 0 12px"></p>
+        <button class="btn btn--ghost btn--sm" id="copiarPitch" type="button">Copiar texto</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="areaCriador" hidden>
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px"><h2 style="margin:0">Cursos que você publicou</h2><a class="btn btn--primary btn--sm" href="editor.html">+ Enviar novo curso</a></div>
+      <p class="muted" style="font-size:14px;margin:0 0 10px">Cursos de parceiros passam pela curadoria da coordenação antes de aparecer no catálogo. Você recebe <b style="color:var(--text)" id="taxaC2">70%</b> de cada venda.</p>
+      <div class="row-list" id="meus"></div>
+    </div>
+  </section>
+</div></main>
+<div id="rodape"></div>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  const { $, api, esc, capa, exigir, brl, moeda, abas, toast, dataBR } = EIA;
+  const u = await exigir('parceiro');
+  $('#ola').innerHTML = `Olá, <span class="serif">${esc(u.nome.split(' ')[0])}</span>.`;
+  abas($('#tabsArea'), v => { $('#areaAfiliado').hidden = v !== 'afiliado'; $('#areaCriador').hidden = v !== 'criador'; });
+  if (u.parceiro_tipo === 'criador') $('#tabsArea [data-v=criador]').click();
+
+  const [j, est, cat] = await Promise.all([api('parceiro'), api('estudio'), api('cursos')]);
+  const pctA = Math.round(j.taxa_afiliado * 100), pctC = Math.round(j.taxa_criador * 100);
+  $('#kK').textContent = j.cliques.toLocaleString('pt-BR'); $('#kV').textContent = j.vendas.length;
+  $('#kConv').textContent = j.cliques ? `${(j.vendas.length / j.cliques * 100).toFixed(1).replace('.', ',')}% de conversão` : 'sem cliques ainda';
+  $('#kC').textContent = moeda(j.comissao); $('#kTaxa').textContent = `${pctA}% de cada venda`;
+  $('#kR').textContent = moeda(j.repasse); $('#kTaxaC').textContent = `${pctC}% das vendas dos seus cursos`; $('#taxaC2').textContent = pctC + '%';
+
+  // gráfico de 30 dias
+  const dias = Array.from({ length: 30 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - 29 + i); const k = d.toISOString().slice(0, 10); return { k, v: j.serie[k] || 0, d }; });
+  let acc = 0; dias.forEach(x => x.a = (acc += x.v));
+  const max = Math.max(1, acc), W = 600, H = 150;
+  const pts = dias.map((x, i) => [i / 29 * W, H - x.a / max * (H - 16) + 2]);
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  $('#grafico').innerHTML = `<path class="area" d="${line} L${W} ${H} L0 ${H} Z"/><path class="line" d="${line}" pathLength="1" style="stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1600ms cubic-bezier(.22,1,.36,1)"/>
+    <text x="4" y="166">${dias[0].d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</text><text x="${W - 4}" y="166" text-anchor="end">hoje · ${moeda(acc)} no período</text>`;
+  requestAnimationFrame(() => setTimeout(() => $('#grafico .line').style.strokeDashoffset = 0, 60));
+
+  $('#vendas').innerHTML = j.vendas.length ? j.vendas.slice(0, 8).map(v => `<div><span style="flex:1">${esc(v.titulo)}</span><span class="mono muted" style="font-size:12px">${dataBR(v.criado)}</span><b style="font-weight:600;width:96px;text-align:right">+ ${moeda(v.valor * j.taxa_afiliado)}</b></div>`).join('') : '<div class="muted">Nenhuma venda ainda. Compartilhe seu link!</div>';
+
+  // gerador de link
+  cat.cursos.forEach(c => $('#selCurso').insertAdjacentHTML('beforeend', `<option value="${c.slug}">${esc(c.titulo)}</option>`));
+  const gerar = () => {
+    const s = $('#selCurso').value, base = location.origin + location.pathname.replace(/[^/]*$/, '');
+    const url = s ? `${base}curso.html?c=${s}&ref=${j.ref}` : `${base}index.html?ref=${j.ref}`;
+    $('#link').textContent = url;
+    const c = cat.cursos.find(x => x.slug === s);
+    $('#pitch').textContent = c ? `Estou estudando "${c.titulo}" na Escola de IA. ${c.resumo} Dá uma olhada: ${url}` : `Quer aprender IA na prática? A Escola de IA tem um curso grátis de Fundamentos para começar hoje: ${url}`;
+  };
+  $('#selCurso').addEventListener('change', gerar); gerar();
+  const copiar = (txt, btn) => navigator.clipboard.writeText(txt).then(() => { const o = btn.textContent; btn.textContent = 'Copiado ✓'; toast('Copiado para a área de transferência.'); setTimeout(() => btn.textContent = o, 1500); });
+  $('#copiar').addEventListener('click', e => copiar($('#link').textContent, e.currentTarget));
+  $('#copiarPitch').addEventListener('click', e => copiar($('#pitch').textContent, e.currentTarget));
+
+  // cursos do criador
+  const STATUS = { publicado: ['ok', 'Publicado'], rascunho: ['light', 'Rascunho'], em_analise: ['warn', 'Em análise'] };
+  $('#meus').innerHTML = est.cursos.length ? est.cursos.map(c => `<div style="flex-wrap:wrap">
+      <span style="width:72px;flex:none;border-radius:10px;overflow:hidden;aspect-ratio:16/10">${capa(c.slug, c.cor, c.titulo)}</span>
+      <span style="flex:1;min-width:180px"><b style="font-weight:550">${esc(c.titulo)}</b><br><span class="muted" style="font-size:13px">${c.aulas} aulas · ${c.alunos} alunos · seu repasse ${moeda(c.receita * j.taxa_criador)}</span>
+      ${c.motivo && c.status === 'rascunho' ? `<br><span class="tag tag--bad" style="margin-top:6px;height:auto;padding:5px 9px;white-space:normal">Devolvido: ${esc(c.motivo)}</span>` : ''}</span>
+      <span class="tag tag--${STATUS[c.status][0]}">${STATUS[c.status][1]}</span>
+      <a class="btn btn--ghost btn--sm" href="editor.html?id=${c.id}">Editar</a></div>`).join('')
+    : '<div class="empty" style="display:block">Você ainda não enviou cursos. <a href="editor.html" style="color:var(--text);text-decoration:underline">Montar o primeiro</a></div>';
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Área do aluno — Escola de IA</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<div id="topo"></div>
+<main class="dash" id="conteudo"><div class="wrap">
+  <div class="dash__head"><div><span class="eyebrow">Área do aluno</span><h1 id="ola">Olá</h1></div><a class="btn btn--ghost" href="cursos.html">Explorar cursos</a></div>
+  <div class="kpis" id="kpis">
+    <div class="kpi"><span>Cursos</span><b id="kC">–</b><small>matriculados</small></div>
+    <div class="kpi"><span>Aulas concluídas</span><b id="kA">–</b><small id="kAt"></small></div>
+    <div class="kpi"><span>Sequência</span><b id="kS">–</b><small>dias seguidos estudando</small></div>
+    <div class="kpi"><span>Cursos concluídos</span><b id="kF">–</b><small>100% das aulas</small></div>
+  </div>
+  <div class="cols">
+    <div style="display:grid;gap:18px">
+      <div id="continuar"><div class="continue"><div class="continue__cover sk"></div><div><div class="sk" style="height:14px;width:30%"></div><div class="sk" style="height:26px;width:80%;margin:12px 0"></div></div></div></div>
+      <div class="panel"><h2>Meus cursos</h2><div class="row-list" id="lista"></div></div>
+    </div>
+    <div style="display:grid;gap:18px">
+      <div class="panel"><h2>Últimos 14 dias</h2><div class="streak" id="streak"></div><p class="muted" style="font-size:13px;margin:12px 0 0">Cada quadrado aceso é um dia em que você concluiu pelo menos uma aula.</p></div>
+      <div class="panel"><h2>Recomendados para você</h2><div class="row-list" id="recs"></div></div>
+    </div>
+  </div>
+</div></main>
+<div id="rodape"></div>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  const { $, api, esc, capa, exigir, brl } = EIA;
+  const u = await exigir('aluno');
+  $('#ola').innerHTML = `Olá, <span class="serif">${esc(u.nome.split(' ')[0])}</span>.`;
+  const [j, cat] = await Promise.all([api('aluno'), api('cursos')]);
+  const cs = j.cursos;
+  const aulas = cs.reduce((s, c) => s + c.feitas, 0), total = cs.reduce((s, c) => s + c.aulas, 0);
+  // sequência de dias
+  const dias = new Set(j.dias), fmt = d => d.toISOString().slice(0, 10);
+  const hoje = new Date(); let seq = 0;
+  for (let d = new Date(hoje); ; d.setDate(d.getDate() - 1)) { if (dias.has(fmt(d))) seq++; else if (fmt(d) !== fmt(hoje)) break; if (seq > 365) break; }
+  $('#kC').textContent = cs.length; $('#kA').textContent = aulas; $('#kAt').textContent = `de ${total} aulas`; $('#kS').textContent = seq; $('#kF').textContent = cs.filter(c => c.feitas === c.aulas && c.aulas).length;
+  $('#streak').innerHTML = Array.from({ length: 14 }, (_, i) => { const d = new Date(hoje); d.setDate(d.getDate() - 13 + i); return `<i class="${dias.has(fmt(d)) ? 'on' : ''}${i === 13 ? ' hoje' : ''}" title="${d.toLocaleDateString('pt-BR')}"></i>`; }).join('');
+
+  const ativo = cs.filter(c => c.proxima).sort((a, b) => b.ultima - a.ultima)[0];
+  $('#continuar').innerHTML = ativo ? `<a class="continue spot" href="aula.html?c=${ativo.slug}&a=${ativo.proxima.id}" style="position:relative;overflow:hidden;isolation:isolate">
+      <div class="continue__cover">${capa(ativo.slug, ativo.cor, ativo.titulo)}</div>
+      <div><span class="eyebrow">Continue de onde parou</span><h3>${esc(ativo.titulo)}</h3><p class="muted" style="margin:0 0 14px;font-size:14.5px">Próxima: <b style="color:var(--text)">${esc(ativo.proxima.titulo)}</b></p>
+      <div class="prog"><i data-w="${Math.round(ativo.feitas / ativo.aulas * 100)}"></i></div><p class="muted mono" style="font-size:12px;margin:8px 0 0">${ativo.feitas}/${ativo.aulas} aulas</p></div></a>`
+    : cs.length ? '<div class="empty">Você concluiu todos os seus cursos. Que tal começar outro?</div>' : '<div class="empty">Você ainda não está em nenhum curso. <a href="curso.html?c=fundamentos-de-ia-sem-complicacao" style="color:var(--text);text-decoration:underline">Comece pelo curso grátis</a>.</div>';
+
+  $('#lista').innerHTML = cs.length ? cs.map(c => { const p = Math.round(c.feitas / c.aulas * 100); return `<a href="${c.proxima ? `aula.html?c=${c.slug}&a=${c.proxima.id}` : `curso.html?c=${c.slug}`}">
+      <span style="width:64px;flex:none;border-radius:10px;overflow:hidden;aspect-ratio:16/10">${capa(c.slug, c.cor, c.titulo)}</span>
+      <span style="flex:1;min-width:0"><b style="display:block;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.titulo)}</b><span class="prog" style="display:block;margin-top:8px"><i data-w="${p}"></i></span></span>
+      <span class="mono ${p === 100 ? '' : 'muted'}" style="font-size:13px;width:48px;text-align:right">${p === 100 ? '✓ 100%' : p + '%'}</span></a>`; }).join('') : '<div class="muted" style="border:0">Nenhum curso ainda.</div>';
+
+  const meus = new Set(cs.map(c => c.id));
+  const recs = cat.cursos.filter(c => !meus.has(c.id)).slice(0, 4);
+  $('#recs').innerHTML = recs.length ? recs.map(c => `<a href="curso.html?c=${c.slug}"><span style="width:44px;flex:none;border-radius:8px;overflow:hidden;aspect-ratio:1">${capa(c.slug, c.cor, c.titulo)}</span><span style="flex:1;min-width:0;line-height:1.35"><b style="font-weight:550;font-size:14px">${esc(c.titulo)}</b><br><span class="muted" style="font-size:12.5px">${esc(c.categoria)} · ${brl(c.preco)}</span></span></a>`).join('') : '<div class="muted">Você já está em todos os cursos!</div>';
+
+  requestAnimationFrame(() => setTimeout(() => document.querySelectorAll('.prog i[data-w]').forEach(i => i.style.width = i.dataset.w + '%'), 80));
+})();
+</script>
+</body>
+</html>

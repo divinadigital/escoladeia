@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cursos — Escola de IA</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<div id="topo"></div>
+<main class="dash" id="conteudo">
+  <div class="wrap">
+    <div class="dash__head">
+      <div><span class="eyebrow">Catálogo</span><h1 data-split>Todos os <span class="serif">cursos</span></h1></div>
+      <label style="position:relative;width:min(360px,100%)"><span class="sr">Buscar curso</span>
+        <input class="input" id="busca" type="search" placeholder="Buscar por tema, ferramenta ou professor" style="padding-left:42px">
+        <svg style="position:absolute;left:15px;top:15px;color:var(--faint)" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </label>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;margin-bottom:26px">
+      <div class="tabs" id="tabsCat" role="tablist"><button type="button" data-v="" aria-selected="true">Todos</button><button type="button" data-v="Fundamentos">Fundamentos</button><button type="button" data-v="Prompts">Prompts</button><button type="button" data-v="Automação">Automação</button><button type="button" data-v="Programação">Programação</button><button type="button" data-v="Criação">Criação</button><button type="button" data-v="Negócios">Negócios</button></div>
+      <div class="tabs" id="tabsNivel"><button type="button" data-v="" aria-selected="true">Qualquer nível</button><button type="button" data-v="Iniciante">Iniciante</button><button type="button" data-v="Intermediário">Intermediário</button><button type="button" data-v="Avançado">Avançado</button></div>
+    </div>
+    <p class="muted" id="contagem" style="font-size:14px;margin:0 0 16px" aria-live="polite"></p>
+    <div class="grid-cursos" id="grid"></div>
+  </div>
+</main>
+<div id="rodape"></div>
+<script src="assets/app.js"></script>
+<script>
+(() => {
+  const { $, api, abas, cardCurso, skeletonCards, qs } = EIA;
+  const grid = $('#grid'); grid.innerHTML = skeletonCards(6);
+  let todos = [], f = { cat: qs('cat') || '', nivel: '', q: '' };
+  const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const render = () => {
+    const q = norm(f.q);
+    const l = todos.filter(c => (!f.cat || c.categoria === f.cat) && (!f.nivel || c.nivel === f.nivel) && (!q || norm(c.titulo + ' ' + c.resumo + ' ' + c.autor.nome + ' ' + c.categoria).includes(q)));
+    $('#contagem').textContent = l.length + (l.length === 1 ? ' curso' : ' cursos');
+    grid.innerHTML = l.length ? l.map(cardCurso).join('') : '<div class="empty" style="grid-column:1/-1">Nada encontrado. Tente outra palavra ou limpe os filtros.</div>';
+  };
+  abas($('#tabsCat'), v => { f.cat = v; render(); }).set(f.cat);
+  abas($('#tabsNivel'), v => { f.nivel = v; render(); });
+  $('#busca').addEventListener('input', e => { f.q = e.target.value; render(); });
+  api('cursos').then(j => { todos = j.cursos; setTimeout(render, 250); }).catch(e => grid.innerHTML = `<div class="empty" style="grid-column:1/-1">${EIA.esc(e.message)}</div>`);
+})();
+</script>
+</body>
+</html>

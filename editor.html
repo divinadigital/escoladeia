@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Estúdio de curso — Escola de IA</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<div id="topo"></div>
+<main class="dash" id="conteudo"><div class="wrap">
+  <div class="dash__head">
+    <div><a class="eyebrow" id="voltar" href="#">← Voltar ao painel</a><h1 id="tituloPag">Novo curso</h1><p class="muted" id="statusTxt" style="margin:8px 0 0;font-size:14px"></p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap" id="acoes">
+      <button class="btn btn--ghost" type="button" data-acao="salvar">Salvar rascunho</button>
+      <button class="btn btn--primary" type="button" data-acao="publicar" id="btnPub">Publicar</button>
+    </div>
+  </div>
+  <form class="editor" id="form" novalidate>
+    <div style="display:grid;gap:18px">
+      <div class="panel" style="display:grid;gap:16px">
+        <h2 style="margin:0">Sobre o curso</h2>
+        <label class="field"><span>Título</span><input class="input" name="titulo" maxlength="120" placeholder="Ex.: Engenharia de prompt para atendimento"></label>
+        <label class="field"><span>Resumo</span><input class="input" name="resumo" maxlength="240" placeholder="Uma frase que diga o que o aluno vai conseguir fazer"><small><span id="cntResumo">0</span>/240</small></label>
+        <label class="field"><span>Descrição</span><textarea class="textarea" name="descricao" placeholder="Para quem é, o que se aprende, o que é preciso saber antes"></textarea></label>
+        <div class="grid2">
+          <label class="field"><span>Categoria</span><select class="select" name="categoria"><option>Fundamentos</option><option>Prompts</option><option>Automação</option><option>Programação</option><option>Criação</option><option>Negócios</option></select></label>
+          <label class="field"><span>Nível</span><select class="select" name="nivel"><option>Iniciante</option><option>Intermediário</option><option>Avançado</option></select></label>
+          <label class="field"><span>Preço (R$)</span><input class="input" name="preco" type="number" min="0" step="1" value="0"><small>Use 0 para curso gratuito.</small></label>
+          <div class="field"><span>Cor da capa</span><div class="swatches" id="cores"></div></div>
+        </div>
+      </div>
+      <div class="panel" style="display:grid;gap:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2 style="margin:0">Módulos e aulas</h2><span class="muted mono" style="font-size:12.5px" id="resumoGrade"></span></div>
+        <div id="mods" style="display:grid;gap:14px"></div>
+        <button class="btn btn--ghost" type="button" id="addMod" style="justify-self:start">+ Adicionar módulo</button>
+      </div>
+      <button class="btn btn--danger btn--sm" type="button" data-acao="excluir" id="btnExcluir" hidden style="justify-self:start">Excluir curso</button>
+    </div>
+    <aside class="editor__preview">
+      <span class="eyebrow" style="margin-bottom:12px">Pré-visualização</span>
+      <div id="preview" style="margin-top:12px"></div>
+      <div class="panel" style="margin-top:14px;font-size:13.5px;padding:18px" id="dicas"></div>
+    </aside>
+  </form>
+</div></main>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  const { $, $$, api, esc, exigir, cardCurso, toast, qs, PAINEL, md, modal, confete } = EIA;
+  const u = await exigir('professor', 'parceiro');
+  const ehParceiro = u.papel === 'parceiro';
+  $('#voltar').href = PAINEL[u.papel];
+  $('#dicas').innerHTML = ehParceiro
+    ? '<b>Como funciona para parceiros</b><p class="muted" style="margin:6px 0 0">Ao enviar, a coordenação revisa o curso. Se estiver tudo certo ele entra no catálogo; se não, volta com orientações. Você recebe 70% de cada venda.</p>'
+    : '<b>Dicas</b><p class="muted" style="margin:6px 0 0">Deixe a primeira aula aberta: é ela que convence o aluno. Aulas de 5 a 15 minutos têm mais conclusões.</p>';
+  $('#btnPub').textContent = ehParceiro ? 'Enviar para análise' : 'Publicar';
+
+  const CORES = { lima: '#c6f24e', coral: '#ff6a4d', ceu: '#3aa6ff', rosa: '#ff5fa8', violeta: '#8b6cff', ambar: '#ffb020' };
+  $('#cores').innerHTML = Object.entries(CORES).map(([k, v], i) => `<label style="background:${v}" title="${k}"><input type="radio" name="cor" value="${k}" ${i ? '' : 'checked'}><span class="sr">${k}</span></label>`).join('');
+
+  const nid = () => Math.random().toString(16).slice(2, 10);
+  let curso = { id: null, status: 'rascunho', slug: 'novo-curso', modulos: [{ titulo: 'Módulo 1', aulas: [{ id: nid(), titulo: '', min: 10, gratis: true, video: '', texto: '' }] }] };
+  let sujo = false;
+  const id = qs('id');
+  if (id) {
+    try { curso = (await api('estudio/curso', { id }, 'GET')).curso; } catch (e) { toast(e.message, 'erro'); }
+    const f = $('#form');
+    ['titulo', 'resumo', 'descricao', 'categoria', 'nivel', 'preco'].forEach(k => f.elements[k].value = curso[k] ?? '');
+    const r = f.querySelector(`[name=cor][value="${curso.cor}"]`); if (r) r.checked = true;
+    $('#btnExcluir').hidden = false;
+  }
+
+  const STATUS = { publicado: 'Publicado no catálogo', rascunho: 'Rascunho, só você vê', em_analise: 'Em análise pela coordenação' };
+  const pintarStatus = () => {
+    $('#tituloPag').textContent = curso.id ? 'Editar curso' : 'Novo curso';
+    $('#statusTxt').innerHTML = `${STATUS[curso.status]}${curso.motivo && curso.status === 'rascunho' ? ` · <span style="color:var(--bad)">Devolvido: ${esc(curso.motivo)}</span>` : ''}${sujo ? ' · <b style="color:var(--warn)">alterações não salvas</b>' : ''}`;
+    const pub = curso.status === 'publicado';
+    $('#btnPub').dataset.acao = pub ? 'despublicar' : 'publicar';
+    $('#btnPub').textContent = pub ? 'Despublicar' : ehParceiro ? (curso.status === 'em_analise' ? 'Reenviar para análise' : 'Enviar para análise') : 'Publicar';
+    $('#btnPub').className = 'btn ' + (pub ? 'btn--ghost' : 'btn--primary');
+  };
+
+  // ----- módulos e aulas
+  const I = { drag: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>', x: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>', mais: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>' };
+  const abertas = new Set();
+  function renderMods() {
+    $('#mods').innerHTML = curso.modulos.map((m, mi) => `<div class="mod" data-mi="${mi}">
+      <div class="mod__head"><span class="mono muted" style="font-size:12px;width:24px">${String(mi + 1).padStart(2, '0')}</span><input class="input input--sm" data-f="mtitulo" value="${esc(m.titulo)}" placeholder="Nome do módulo" aria-label="Nome do módulo ${mi + 1}"><button class="icon-btn" type="button" data-rm-mod aria-label="Remover módulo">${I.x}</button></div>
+      ${m.aulas.map((a, ai) => `<div class="les${abertas.has(a.id) ? ' is-open' : ''}" draggable="true" data-ai="${ai}">
+        <span class="handle" title="Arraste para reordenar">${I.drag}</span>
+        <input class="input input--sm" data-f="titulo" value="${esc(a.titulo)}" placeholder="Título da aula" aria-label="Título da aula">
+        <input class="input input--sm min" data-f="min" type="number" min="0" value="${a.min}" aria-label="Duração em minutos" title="minutos">
+        <label class="check" title="Aula aberta para quem não é aluno"><span class="switch"><input type="checkbox" data-f="gratis" ${a.gratis ? 'checked' : ''}><i></i></span><span class="hide-m" style="font-size:12.5px">Aberta</span></label>
+        <span style="display:flex;gap:4px"><button class="icon-btn" type="button" data-toggle aria-label="Conteúdo da aula" style="${abertas.has(a.id) ? 'transform:rotate(180deg)' : ''}">${I.mais}</button><button class="icon-btn" type="button" data-rm aria-label="Remover aula">${I.x}</button></span>
+        ${abertas.has(a.id) ? `<div class="les__more">
+          <label class="field"><span>Vídeo (opcional)</span><input class="input input--sm" data-f="video" value="${esc(a.video || '')}" placeholder="Link do YouTube, Vimeo ou arquivo .mp4"></label>
+          <label class="field"><span>Texto da aula</span><textarea class="textarea" data-f="texto" style="min-height:160px;font:14px/1.6 var(--mono)" placeholder="## Título&#10;Parágrafo com **negrito** e \`código\`.&#10;- item de lista&#10;> destaque">${esc(a.texto || '')}</textarea><small>Aceita ## títulos, **negrito**, listas com -, > destaque e blocos de código com três crases.</small></label>
+          <button class="btn btn--quiet btn--sm" type="button" data-ver style="justify-self:start">Pré-visualizar aula</button></div>` : ''}
+      </div>`).join('')}
+      <button class="btn btn--quiet btn--sm" type="button" data-add-aula style="justify-self:start">+ Aula</button></div>`).join('');
+    const n = curso.modulos.reduce((s, m) => s + m.aulas.length, 0), min = curso.modulos.reduce((s, m) => s + m.aulas.reduce((x, a) => x + (+a.min || 0), 0), 0);
+    $('#resumoGrade').textContent = `${curso.modulos.length} módulos · ${n} aulas · ${EIA.horas(min)}`;
+  }
+  const alterou = () => { sujo = true; pintarStatus(); preview(); };
+  $('#mods').addEventListener('input', e => {
+    const mod = e.target.closest('.mod'); if (!mod) return; const m = curso.modulos[mod.dataset.mi];
+    const f = e.target.dataset.f;
+    if (f === 'mtitulo') m.titulo = e.target.value;
+    else if (f) { const a = m.aulas[e.target.closest('.les').dataset.ai]; a[f] = e.target.type === 'checkbox' ? e.target.checked : f === 'min' ? +e.target.value : e.target.value; }
+    alterou(); if (f === 'min') $('#resumoGrade').textContent = $('#resumoGrade').textContent;
+  });
+  $('#mods').addEventListener('change', e => { if (e.target.dataset.f === 'gratis' || e.target.dataset.f === 'min') renderMods(); });
+  $('#mods').addEventListener('click', e => {
+    const mod = e.target.closest('.mod'); if (!mod) return; const mi = +mod.dataset.mi, m = curso.modulos[mi];
+    const les = e.target.closest('.les'), ai = les ? +les.dataset.ai : -1;
+    if (e.target.closest('[data-add-aula]')) { const a = { id: nid(), titulo: '', min: 10, gratis: false, video: '', texto: '' }; m.aulas.push(a); abertas.add(a.id); renderMods(); alterou(); $(`.mod[data-mi="${mi}"] .les:last-of-type [data-f=titulo]`)?.focus(); }
+    else if (e.target.closest('[data-rm-mod]')) { if (m.aulas.some(a => a.titulo) && !confirm('Remover o módulo e todas as aulas dele?')) return; curso.modulos.splice(mi, 1); renderMods(); alterou(); }
+    else if (e.target.closest('[data-rm]')) { m.aulas.splice(ai, 1); renderMods(); alterou(); }
+    else if (e.target.closest('[data-toggle]')) { const a = m.aulas[ai]; abertas.has(a.id) ? abertas.delete(a.id) : abertas.add(a.id); renderMods(); }
+    else if (e.target.closest('[data-ver]')) { const a = m.aulas[ai]; modal(`<span class="eyebrow">Pré-visualização</span><h2 class="h3" style="margin:12px 0 18px">${esc(a.titulo || 'Aula sem título')}</h2><div class="prose" style="font-size:15.5px">${md(a.texto) || '<p class="muted">Sem texto ainda.</p>'}</div><button class="btn btn--dark" data-fechar style="margin-top:12px">Fechar</button>`); }
+  });
+  $('#addMod').addEventListener('click', () => { curso.modulos.push({ titulo: 'Módulo ' + (curso.modulos.length + 1), aulas: [] }); renderMods(); alterou(); });
+
+  // arrastar e soltar aulas (inclusive entre módulos)
+  let arr = null;
+  $('#mods').addEventListener('dragstart', e => { const l = e.target.closest('.les'); if (!l || e.target.matches('input,textarea')) return; arr = { mi: +l.closest('.mod').dataset.mi, ai: +l.dataset.ai }; l.classList.add('is-drag'); e.dataTransfer.effectAllowed = 'move'; });
+  $('#mods').addEventListener('dragend', () => { arr = null; $$('.les.is-drag').forEach(x => x.classList.remove('is-drag')); });
+  $('#mods').addEventListener('dragover', e => { if (arr) e.preventDefault(); });
+  $('#mods').addEventListener('drop', e => {
+    if (!arr) return; e.preventDefault();
+    const mod = e.target.closest('.mod'); if (!mod) return;
+    const l = e.target.closest('.les'), mi = +mod.dataset.mi;
+    const [a] = curso.modulos[arr.mi].aulas.splice(arr.ai, 1);
+    const dest = curso.modulos[mi].aulas; let pos = l ? +l.dataset.ai : dest.length;
+    dest.splice(pos, 0, a); arr = null; renderMods(); alterou();
+  });
+
+  // ----- pré-visualização
+  const dados = () => { const f = new FormData($('#form')); return { ...curso, titulo: f.get('titulo'), resumo: f.get('resumo'), descricao: f.get('descricao'), categoria: f.get('categoria'), nivel: f.get('nivel'), preco: +f.get('preco') || 0, cor: f.get('cor') }; };
+  function preview() {
+    const d = dados(), aulas = d.modulos.reduce((s, m) => s + m.aulas.length, 0), min = d.modulos.reduce((s, m) => s + m.aulas.reduce((x, a) => x + (+a.min || 0), 0), 0);
+    $('#preview').innerHTML = cardCurso({ ...d, slug: d.slug || (d.titulo || 'novo'), titulo: d.titulo || 'Título do curso', resumo: d.resumo || 'O resumo aparece aqui.', aulas, minutos: min, autor: { nome: u.nome, selo: ehParceiro ? 'Parceiro criador' : 'Professor da casa' } });
+    $('#preview .ccard__link').removeAttribute('href');
+    $('#cntResumo').textContent = (d.resumo || '').length;
+  }
+  $('#form').addEventListener('input', e => { if (!e.target.closest('#mods')) alterou(); });
+
+  // ----- salvar / publicar / excluir
+  $$('[data-acao]').forEach(b => b.addEventListener('click', async () => {
+    const acao = b.dataset.acao;
+    if (acao === 'excluir') {
+      if (!confirm('Excluir este curso de vez? Essa ação não pode ser desfeita.')) return;
+      try { await api('estudio/excluir', { id: curso.id }); toast('Curso excluído.'); sujo = false; location.href = PAINEL[u.papel]; } catch (e) { toast(e.message, 'erro'); }
+      return;
+    }
+    const d = dados();
+    if (!d.titulo || d.titulo.trim().length < 4) { const i = $('[name=titulo]'); i.classList.remove('shake'); void i.offsetWidth; i.classList.add('shake'); i.focus(); toast('Dê um título ao curso (mínimo 4 letras).', 'erro'); return; }
+    b.classList.add('is-loading');
+    try {
+      const r = await api('estudio/curso', { ...d, acao });
+      const novo = !curso.id; curso.id = r.id; curso.slug = r.slug; curso.status = r.status; curso.motivo = ''; sujo = false;
+      if (novo) history.replaceState(null, '', '?id=' + r.id), $('#btnExcluir').hidden = false;
+      pintarStatus(); preview();
+      if (acao === 'publicar') { const rc = b.getBoundingClientRect(); confete(rc.left + rc.width / 2, rc.top + rc.height / 2, 90); toast(r.status === 'publicado' ? 'Curso publicado no catálogo!' : 'Enviado para análise. Avisaremos no seu painel.'); }
+      else toast(acao === 'despublicar' ? 'Curso tirado do catálogo.' : 'Rascunho salvo.');
+    } catch (e) { toast(e.message, 'erro'); }
+    b.classList.remove('is-loading');
+  }));
+  addEventListener('beforeunload', e => { if (sujo) { e.preventDefault(); e.returnValue = ''; } });
+  addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); $('[data-acao=salvar]').click(); } });
+
+  renderMods(); pintarStatus(); preview();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Curso — Escola de IA</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<div id="topo"></div>
+<main id="conteudo">
+  <section class="course-hero"><div class="wrap course-hero__grid" id="hero">
+    <div><div class="sk" style="height:16px;width:180px"></div><div class="sk" style="height:56px;width:90%;margin:20px 0"></div><div class="sk" style="height:18px;width:70%"></div></div>
+    <div class="buy"><div class="buy__cover sk"></div><div class="sk" style="height:40px;width:50%"></div></div>
+  </div></section>
+  <section class="sec" style="padding-top:56px"><div class="wrap" style="max-width:860px;margin-left:max(16px, calc((100% - 1200px) / 2))" id="grade"></div></section>
+</main>
+<div id="rodape"></div>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  const { $, $$, api, esc, brl, capa, avatar, horas, qs, eu, toast, confete, refAtual, efeitos } = EIA;
+  const slug = qs('c');
+  let j;
+  try { j = await api('curso', { slug }); }
+  catch (e) { $('#hero').innerHTML = `<div class="empty" style="grid-column:1/-1">${esc(e.message)} <a href="cursos.html" style="text-decoration:underline">Ver cursos</a></div>`; $('#grade').innerHTML = ''; return; }
+  const c = j.curso, u = await eu();
+  document.title = c.titulo + ' — Escola de IA';
+  const todas = c.modulos.flatMap(m => m.aulas), feitas = new Set(j.feitas);
+  const primeira = todas.find(a => !feitas.has(a.id)) || todas[0];
+  const pct = todas.length ? Math.round(feitas.size / todas.length * 100) : 0;
+  const dono = u && u.id === c.autor.id;
+
+  let acao;
+  if (j.matriculado) acao = `<a class="btn btn--primary btn--lg" href="aula.html?c=${c.slug}&a=${primeira.id}">${feitas.size ? 'Continuar curso' : 'Começar a assistir'} <span class="arr">→</span></a><div class="prog" style="margin:14px 8px 0"><i style="width:${pct}%"></i></div><p class="muted" style="font-size:13px;margin:8px">${pct}% concluído</p>`;
+  else if (dono) acao = `<a class="btn btn--dark btn--lg" href="editor.html?id=${c.id}">Editar este curso</a>`;
+  else if (u && u.papel !== 'aluno') acao = `<button class="btn btn--ghost btn--lg" disabled>Matrículas são feitas com conta de aluno</button>`;
+  else acao = `<button class="btn btn--primary btn--lg magnetic" id="matricular">${c.preco > 0 ? 'Matricular agora' : 'Começar grátis'} <span class="arr">→</span></button>${c.preco > 0 ? '<p class="muted" style="font-size:12.5px;margin:10px 8px 0;text-align:center">Modo demonstração: o pagamento ainda não está conectado, a matrícula é liberada na hora.</p>' : ''}`;
+
+  $('#hero').innerHTML = `
+    <div>
+      <a href="cursos.html?cat=${encodeURIComponent(c.categoria)}" class="eyebrow">${esc(c.categoria)} · ${esc(c.nivel)}</a>
+      <h1 data-split>${esc(c.titulo)}</h1>
+      <p class="lead">${esc(c.resumo)}</p>
+      <div class="meta-row" style="margin:26px 0"><span><b>${c.aulas}</b> aulas</span><span><b>${horas(c.minutos)}</b> de conteúdo</span><span><b>${c.alunos}</b> alunos</span><span><b>${c.modulos.length}</b> módulos</span></div>
+      <div class="panel" style="display:flex;gap:16px;align-items:center;max-width:560px;padding:18px">${avatar(c.autor.nome, 52)}<div><b>${esc(c.autor.nome)}</b> <span class="tag tag--light" style="margin-left:6px">${esc(c.autor.selo)}</span><p class="muted" style="margin:4px 0 0;font-size:14px">${esc(c.autor.bio || '')}</p></div></div>
+      <div class="prose" style="margin-top:30px;color:var(--muted)"><p>${esc(c.descricao || '')}</p></div>
+    </div>
+    <aside class="buy">
+      <div class="buy__cover">${capa(c.slug, c.cor, c.titulo)}</div>
+      <div class="buy__price">${brl(c.preco)}</div>
+      <ul><li>✓ Acesso a todas as ${c.aulas} aulas</li><li>✓ Progresso salvo automaticamente</li><li>✓ ${todas.filter(a => a.gratis).length} aulas abertas para experimentar</li></ul>
+      ${acao}
+      ${c.status !== 'publicado' ? `<p class="tag tag--warn" style="margin:12px 8px 0">Status: ${c.status === 'em_analise' ? 'em análise' : 'rascunho'}</p>` : ''}
+    </aside>`;
+
+  const ico = (a) => feitas.has(a.id) ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="m5 12 5 5 9-10"/></svg>'
+    : a.bloqueada ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
+    : '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l12-7z"/></svg>';
+  $('#grade').innerHTML = `<span class="eyebrow">Conteúdo do curso</span><h2 class="h3" style="margin:12px 0 24px">${c.modulos.length} módulos · ${c.aulas} aulas</h2>
+    <div class="acc">${c.modulos.map((m, i) => `<div class="acc__item${i === 0 ? ' is-open' : ''}"><button class="acc__btn" type="button" aria-expanded="${i === 0}"><span class="mono muted" style="font-size:12px">${String(i + 1).padStart(2, '0')}</span>${esc(m.titulo)}<small>${m.aulas.length} aulas · ${horas(m.aulas.reduce((s, a) => s + a.min, 0))}</small><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="acc__panel"><div>${m.aulas.map(a => `<a class="lesson${feitas.has(a.id) ? ' is-done' : ''}${a.bloqueada ? ' is-locked' : ''}" href="${a.bloqueada ? '#' : `aula.html?c=${c.slug}&a=${a.id}`}" ${a.bloqueada ? 'data-lock' : ''}><span class="lesson__ico">${ico(a)}</span>${esc(a.titulo)}${a.gratis && !j.matriculado ? '<span class="tag tag--ok">Aula aberta</span>' : ''}<span class="lesson__min">${a.min} min</span></a>`).join('')}</div></div></div>`).join('')}</div>`;
+
+  $$('.acc__btn').forEach(b => b.addEventListener('click', () => { const it = b.parentElement, on = !it.classList.contains('is-open'); it.classList.toggle('is-open', on); b.setAttribute('aria-expanded', on); }));
+  $$('[data-lock]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); toast('Matricule-se para liberar esta aula.'); $('#matricular')?.focus(); }));
+  efeitos($('#hero'));
+
+  const btn = $('#matricular');
+  btn?.addEventListener('click', async () => {
+    if (!u) { location.href = `entrar.html?perfil=aluno&modo=cadastro&volta=${encodeURIComponent(location.pathname + location.search)}`; return; }
+    btn.classList.add('is-loading');
+    try {
+      await api('matricular', { curso_id: c.id, ref: refAtual() });
+      const r = btn.getBoundingClientRect(); confete(r.left + r.width / 2, r.top + r.height / 2);
+      toast('Matrícula feita! Bons estudos.');
+      setTimeout(() => location.href = `aula.html?c=${c.slug}&a=${todas[0].id}`, 1100);
+    } catch (e) { toast(e.message, 'erro'); btn.classList.remove('is-loading'); }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Coordenação — Escola de IA</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<div id="topo"></div>
+<main class="dash" id="conteudo"><div class="wrap">
+  <div class="dash__head"><div><span class="eyebrow">Coordenação</span><h1>Curadoria do <span class="serif">portal</span></h1></div></div>
+  <div class="kpis">
+    <div class="kpi"><span>Alunos</span><b id="kA">–</b></div>
+    <div class="kpi"><span>Professores</span><b id="kP">–</b></div>
+    <div class="kpi"><span>Parceiros</span><b id="kR">–</b></div>
+    <div class="kpi"><span>Receita total</span><b id="kT">–</b></div>
+  </div>
+  <div class="panel"><h2>Cursos aguardando análise</h2><div id="fila" style="display:grid;gap:14px"></div></div>
+</div></main>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  const { $, $$, api, esc, capa, exigir, brl, moeda, toast, modal, horas, confete } = EIA;
+  await exigir('admin');
+  const carregar = async () => {
+    const j = await api('admin');
+    $('#kA').textContent = j.contas.aluno; $('#kP').textContent = j.contas.professor; $('#kR').textContent = j.contas.parceiro; $('#kT').textContent = moeda(j.receita).replace(/,\d\d$/, '');
+    $('#fila').innerHTML = j.fila.length ? j.fila.map(c => `<div class="continue" style="grid-template-columns:180px 1fr auto" data-id="${c.id}">
+        <div class="continue__cover">${capa(c.slug, c.cor, c.titulo)}</div>
+        <div><span class="eyebrow">${esc(c.categoria)} · ${esc(c.nivel)} · ${brl(c.preco)}</span><h3>${esc(c.titulo)}</h3><p class="muted" style="margin:0;font-size:14px">Por <b style="color:var(--text)">${esc(c.autor.nome)}</b> · ${c.modulos.length} módulos · ${c.aulas} aulas · ${horas(c.minutos)}</p>
+          <p style="margin:8px 0 0;font-size:14px">${esc(c.resumo)}</p></div>
+        <div style="display:grid;gap:8px"><a class="btn btn--ghost btn--sm" href="curso.html?c=${c.slug}" target="_blank" rel="noopener">Revisar</a><button class="btn btn--primary btn--sm" data-ok>Aprovar</button><button class="btn btn--quiet btn--sm" data-no>Devolver</button></div></div>`).join('')
+      : '<div class="empty">Nenhum curso na fila. Tudo em dia ✓</div>';
+  };
+  $('#fila').addEventListener('click', async e => {
+    const card = e.target.closest('[data-id]'); if (!card) return; const id = +card.dataset.id;
+    if (e.target.closest('[data-ok]')) {
+      await api('admin/decidir', { id, aprovar: true }); const r = e.target.getBoundingClientRect(); confete(r.left, r.top, 80); toast('Curso aprovado e publicado.'); carregar();
+    } else if (e.target.closest('[data-no]')) {
+      const m = modal(`<h2 class="h3">Devolver para ajustes</h2><p class="muted" style="font-size:14.5px">O parceiro verá esta mensagem no painel dele.</p><textarea class="textarea" id="motivo" placeholder="Ex.: a aula 3 está sem conteúdo; revise o título do módulo 2."></textarea><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button class="btn btn--quiet" data-fechar>Cancelar</button><button class="btn btn--dark" id="enviarMotivo">Devolver</button></div>`);
+      $('#motivo', m.el).focus();
+      $('#enviarMotivo', m.el).addEventListener('click', async () => { await api('admin/decidir', { id, aprovar: false, motivo: $('#motivo', m.el).value }); m.fechar(); toast('Curso devolvido ao parceiro.'); carregar(); });
+    }
+  });
+  carregar();
+})();
+</script>
+</body>
+</html>

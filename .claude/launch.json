@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "escola-ia", "runtimeExecutable": "python", "runtimeArgs": ["server.py", "5530"], "port": 5530 }
+  ]
+}

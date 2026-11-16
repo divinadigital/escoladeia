@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Aula — Escola de IA</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<div id="topo"></div>
+<main class="player" id="conteudo">
+  <aside class="player__side" id="lado"><header><div class="sk" style="height:14px;width:60%"></div><div class="sk" style="height:22px;width:90%;margin-top:10px"></div></header></aside>
+  <article class="player__main" id="principal">
+    <div class="sk" style="height:14px;width:140px"></div><div class="sk" style="height:44px;width:80%;margin:16px 0 30px"></div>
+    <div class="sk" style="height:16px;width:100%;margin-bottom:10px"></div><div class="sk" style="height:16px;width:94%;margin-bottom:10px"></div><div class="sk" style="height:16px;width:70%"></div>
+  </article>
+</main>
+<script src="assets/app.js"></script>
+<script>
+(async () => {
+  const { $, $$, api, esc, md, qs, eu, toast, confete } = EIA;
+  const slug = qs('c'), aulaId = qs('a');
+  let cj, aj;
+  try { [cj, aj] = await Promise.all([api('curso', { slug }), api('aula', { curso: slug, aula: aulaId })]); }
+  catch (e) {
+    $('#principal').innerHTML = `<span class="eyebrow">Aula bloqueada</span><h1 class="h2" style="margin:14px 0 18px">${esc(e.message)}</h1><a class="btn btn--primary" href="curso.html?c=${encodeURIComponent(slug)}">Ver o curso</a>`;
+    $('#lado').hidden = true; return;
+  }
+  const c = cj.curso, a = aj.aula, u = await eu();
+  const feitas = new Set(cj.feitas), todas = c.modulos.flatMap(m => m.aulas);
+  const idx = todas.findIndex(x => x.id === a.id), ant = todas[idx - 1], prox = todas[idx + 1];
+  const podeMarcar = u && u.papel === 'aluno' && cj.matriculado;
+  document.title = a.titulo + ' — ' + c.titulo;
+
+  const pct = () => Math.round(feitas.size / todas.length * 100);
+  const lado = () => {
+    $('#lado').innerHTML = `<header><a class="eyebrow" href="curso.html?c=${c.slug}">← Voltar ao curso</a><h2 style="font-size:19px;margin:12px 0 14px;letter-spacing:-.02em">${esc(c.titulo)}</h2><div class="prog"><i style="width:${pct()}%"></i></div><p class="muted mono" style="font-size:12px;margin:8px 0 0">${feitas.size}/${todas.length} aulas · ${pct()}%</p></header>
+      ${c.modulos.map(m => `<div class="mod-title">${esc(m.titulo)}</div>${m.aulas.map(x => `<a class="lesson${feitas.has(x.id) ? ' is-done' : ''}${x.bloqueada ? ' is-locked' : ''}" href="${x.bloqueada ? `curso.html?c=${c.slug}` : `aula.html?c=${c.slug}&a=${x.id}`}" aria-current="${x.id === a.id}"><span class="lesson__ico">${feitas.has(x.id) ? '✓' : x.bloqueada ? '🔒' : '▸'}</span><span>${esc(x.titulo)}</span><span class="lesson__min">${x.min}m</span></a>`).join('')}`).join('')}`;
+  };
+  lado();
+
+  // vídeo: aceita YouTube, Vimeo ou arquivo .mp4
+  const embed = url => {
+    if (!url) return '';
+    let m;
+    if ((m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/))) return `<iframe src="https://www.youtube-nocookie.com/embed/${m[1]}?rel=0" title="Vídeo da aula" allow="accelerometer; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+    if ((m = url.match(/vimeo\.com\/(\d+)/))) return `<iframe src="https://player.vimeo.com/video/${m[1]}" title="Vídeo da aula" allow="fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+    if (/^https?:\/\/.+\.(mp4|webm)(\?.*)?$/i.test(url)) return `<video src="${esc(url)}" controls playsinline></video>`;
+    return '';
+  };
+  const v = embed(a.video);
+  const chaveNota = `eia-nota-${slug}-${a.id}`;
+  let nota = ''; try { nota = localStorage.getItem(chaveNota) || ''; } catch (e) {}
+
+  $('#principal').innerHTML = `
+    <span class="eyebrow">Aula ${idx + 1} de ${todas.length} · ${a.min} min</span>
+    <h1 class="h2" style="margin:14px 0 30px" data-split>${esc(a.titulo)}</h1>
+    ${v ? `<div class="video">${v}</div>` : ''}
+    <div class="prose">${md(a.texto) || '<p class="muted">Esta aula ainda não tem texto.</p>'}</div>
+    <details class="panel" style="margin-top:40px;padding:18px 20px"><summary style="cursor:pointer;font-weight:550">Minhas anotações <span class="muted" style="font-weight:400;font-size:13px">· ficam salvas neste navegador</span></summary>
+      <textarea class="textarea" id="nota" style="margin-top:14px" placeholder="Escreva o que você quer lembrar desta aula...">${esc(nota)}</textarea></details>
+    <div class="player__bar">
+      ${ant ? `<a class="btn btn--quiet" href="aula.html?c=${c.slug}&a=${ant.id}">← Anterior</a>` : '<span></span>'}
+      ${podeMarcar ? `<label class="check"><span class="switch"><input type="checkbox" id="feita" aria-label="Marcar aula como concluída"${feitas.has(a.id) ? 'checked' : ''}><i></i></span>Aula concluída</label>` : !u ? `<a class="btn btn--ghost btn--sm" href="entrar.html?perfil=aluno&modo=cadastro">Crie sua conta para salvar o progresso</a>` : '<span></span>'}
+      ${prox ? `<a class="btn btn--primary" id="prox" href="${prox.bloqueada ? `curso.html?c=${c.slug}` : `aula.html?c=${c.slug}&a=${prox.id}`}">${prox.bloqueada ? 'Matricule-se para continuar' : 'Próxima aula'} <span class="arr">→</span></a>` : `<a class="btn btn--dark" href="${u && u.papel === 'aluno' ? 'aluno.html' : 'cursos.html'}">Fim do curso</a>`}
+    </div>`;
+  EIA.efeitos($('#principal'));
+
+  let t; $('#nota').addEventListener('input', e => { clearTimeout(t); t = setTimeout(() => { try { localStorage.setItem(chaveNota, e.target.value); } catch (er) {} }, 400); });
+
+  const marcar = async (on, silencioso) => {
+    try {
+      const r = await api('concluir', { curso: slug, aula: a.id, desfazer: !on });
+      on ? feitas.add(a.id) : feitas.delete(a.id); lado();
+      if (on && r.feitas === r.total) { confete(); toast('Curso concluído! Parabéns 🎉'); }
+      else if (on && !silencioso) toast('Aula concluída.');
+    } catch (e) { toast(e.message, 'erro'); }
+  };
+  $('#feita')?.addEventListener('change', e => marcar(e.target.checked));
+  // ao avançar, marca a aula atual como concluída
+  $('#prox')?.addEventListener('click', () => { if (podeMarcar && !feitas.has(a.id)) navigator.sendBeacon?.('/api/concluir', new Blob([JSON.stringify({ curso: slug, aula: a.id })], { type: 'application/json' })); });
+})();
+</script>
+</body>
+</html>
