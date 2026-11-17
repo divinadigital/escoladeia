@@ -42,7 +42,7 @@
   const cs = j.cursos;
   const aulas = cs.reduce((s, c) => s + c.feitas, 0), total = cs.reduce((s, c) => s + c.aulas, 0);
   // sequência de dias
-  const dias = new Set(j.dias), fmt = d => d.toISOString().slice(0, 10);
+  const dias = new Set(j.dias), fmt = EIA.diaLocal;
   const hoje = new Date(); let seq = 0;
   for (let d = new Date(hoje); ; d.setDate(d.getDate() - 1)) { if (dias.has(fmt(d))) seq++; else if (fmt(d) !== fmt(hoje)) break; if (seq > 365) break; }
   $('#kC').textContent = cs.length; $('#kA').textContent = aulas; $('#kAt').textContent = `de ${total} aulas`; $('#kS').textContent = seq; $('#kF').textContent = cs.filter(c => c.feitas === c.aulas && c.aulas).length;

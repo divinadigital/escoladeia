@@ -13,6 +13,24 @@ Abra http://localhost:5530. Só precisa do Python 3.9 ou mais novo, sem instalar
 Na primeira vez o banco `dados/escola.db` é criado com cursos e contas de demonstração.
 Para zerar tudo, apague a pasta `dados/` e rode de novo.
 
+## Site no ar (GitHub Pages)
+
+https://divinadigital.github.io/escoladeia/
+
+O GitHub Pages não roda o `server.py`. Lá o site entra sozinho no **modo demonstração**
+(`assets/api-local.js`): as mesmas regras do servidor rodando dentro do navegador, a partir dos dados de
+`assets/demo-db.js`. Cada visitante tem a própria cópia, salva no navegador dele; o rodapé avisa isso e tem
+um link para recomeçar a demonstração.
+
+Para ter contas e progresso compartilhados de verdade, é preciso hospedar o `server.py` (ou ligar um banco
+online como o Supabase).
+
+Se mudar o `seed.py`, gere de novo os dados da demonstração:
+
+```bash
+python exportar_demo.py
+```
+
 ## Contas de demonstração
 
 | Área | E-mail | Senha |
@@ -50,4 +68,4 @@ Troque ou remova essas contas antes de publicar.
 
 - **Pagamento**: hoje a matrícula de curso pago é liberada sem cobrança (modo demonstração). Próximo passo: Mercado Pago, Stripe ou Hotmart.
 - **E-mails**: recuperação de senha e confirmação de cadastro.
-- **Hospedagem**: o `server.py` precisa de um servidor com Python (ex.: Render, Railway, VPS).
+- **Contas reais online**: hospedar o `server.py` (Render, Railway, VPS) ou trocar o modo demonstração por um banco online (Supabase).

@@ -82,7 +82,11 @@
   };
   $('#feita')?.addEventListener('change', e => marcar(e.target.checked));
   // ao avançar, marca a aula atual como concluída
-  $('#prox')?.addEventListener('click', () => { if (podeMarcar && !feitas.has(a.id)) navigator.sendBeacon?.('/api/concluir', new Blob([JSON.stringify({ curso: slug, aula: a.id })], { type: 'application/json' })); });
+  $('#prox')?.addEventListener('click', () => {
+    if (!podeMarcar || feitas.has(a.id)) return;
+    if (EIA.modoLocal) api('concluir', { curso: slug, aula: a.id }).catch(() => {});
+    else navigator.sendBeacon?.('/api/concluir', new Blob([JSON.stringify({ curso: slug, aula: a.id })], { type: 'application/json' }));
+  });
 })();
 </script>
 </body>

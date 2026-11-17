@@ -11,8 +11,23 @@
   const qs = k => new URLSearchParams(location.search).get(k);
 
   /* ---------- API ---------- */
+  // GitHub Pages não roda o server.py: lá o site usa o modo demonstração (assets/api-local.js)
+  let modoLocal = /github\.io$/.test(location.hostname) || location.protocol === 'file:' || /[?&]demo=1\b/.test(location.search);
+  let localPronto;
+  const carregarScript = src => new Promise((ok, falha) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = falha; document.head.appendChild(s); });
+  const base = (document.currentScript?.src || '').replace(/app\.js(\?.*)?$/, '');
+  const local = () => (localPronto ||= carregarScript(base + 'demo-db.js').then(() => carregarScript(base + 'api-local.js')));
   async function api(rota, dados, metodo) {
     const m = metodo || (dados ? 'POST' : 'GET');
+    if (modoLocal) { await local(); return window.EIA_LOCAL.chamar(rota, dados, m); }
+    try { return await apiServidor(rota, dados, m); }
+    catch (e) {
+      // erro com JSON veio da API de verdade (senha errada etc.); sem conexão ou página HTML = não há servidor
+      if (e.status !== 0 && !e.semJson) throw e;
+      modoLocal = true; await local(); return window.EIA_LOCAL.chamar(rota, dados, m);
+    }
+  }
+  async function apiServidor(rota, dados, m) {
     let url = '/api/' + rota;
     const opt = { method: m, headers: {}, credentials: 'same-origin' };
     if (m === 'GET' && dados) url += '?' + new URLSearchParams(dados);
@@ -20,7 +35,7 @@
     let r;
     try { r = await fetch(url, opt); } catch (e) { throw Object.assign(new Error('Sem conexão com o servidor. Abra o site pelo server.py.'), { status: 0 }); }
     let j = {};
-    try { j = await r.json(); } catch (e) { throw Object.assign(new Error('O servidor não respondeu como esperado. Rode "python server.py".'), { status: r.status }); }
+    try { j = await r.json(); } catch (e) { throw Object.assign(new Error('O servidor não respondeu como esperado. Rode "python server.py".'), { status: r.status, semJson: true }); }
     if (!r.ok) throw Object.assign(new Error(j.erro || 'Algo deu errado.'), { status: r.status });
     return j;
   }
@@ -236,6 +251,7 @@
       <div><h4>Ensinar</h4><ul><li><a href="entrar.html?perfil=professor">Área do professor</a></li><li><a href="entrar.html?perfil=parceiro">Área do parceiro</a></li><li><a href="index.html#parceiros">Programa de afiliados</a></li></ul></div>
       <div><h4>Escola</h4><ul><li><a href="index.html#duvidas">Dúvidas</a></li><li><a href="entrar.html?perfil=admin">Coordenação</a></li></ul></div>
       </div><div class="foot__bottom"><span>© ${new Date().getFullYear()} Escola de IA</span><span class="mono">feito com IA, revisado por pessoas</span></div></div></footer>`;
+    eu().then(() => { if (modoLocal) $('.foot__bottom', el).insertAdjacentHTML('beforeend', '<span style="flex-basis:100%">Versão de demonstração: contas, matrículas e progresso ficam salvos só neste navegador. <button type="button" id="zerarDemo" style="border:0;background:none;padding:0;color:inherit;text-decoration:underline;cursor:pointer">Recomeçar a demonstração</button></span>'); $('#zerarDemo')?.addEventListener('click', () => { window.EIA_LOCAL?.zerar(); location.href = 'index.html'; }); });
   }
 
   /* ---------- efeitos de entrada ---------- */
@@ -362,11 +378,12 @@
     return { el: m, fechar };
   }
 
+  const diaLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const dataBR = ts => new Date(ts * 1000).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 
   header(); footer();
   document.addEventListener('DOMContentLoaded', () => efeitos());
   if (document.readyState !== 'loading') efeitos();
 
-  window.EIA = { $, $$, api, eu, exigir, sair, esc, brl, moeda, qs, avatar, capa, cardCurso, skeletonCards, md, toast, confete, efeitos, abas, rede, modal, horas, dataBR, refAtual, PAINEL, PAPEL_NOME, reduce };
+  window.EIA = { get modoLocal() { return modoLocal; }, $, $$, api,eu, exigir, sair, esc, brl, moeda, qs, avatar, capa, cardCurso, skeletonCards, md, toast, confete, efeitos, abas, rede, modal, horas, dataBR, diaLocal, refAtual, PAINEL, PAPEL_NOME, reduce };
 })();

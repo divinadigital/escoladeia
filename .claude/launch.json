@@ -1,6 +1,26 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "escola-ia", "runtimeExecutable": "python", "runtimeArgs": ["server.py", "5530"], "port": 5530 }
+    {
+      "name": "escola-ia",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "server.py",
+        "5530"
+      ],
+      "port": 5530
+    },
+    {
+      "name": "escola-ia-estatico",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5531",
+        "--bind",
+        "127.0.0.1"
+      ],
+      "port": 5531
+    }
   ]
 }
