@@ -3,7 +3,7 @@
    de cada visitante, partindo de assets/demo-db.js. */
 (() => {
   'use strict';
-  const CHAVE = 'eia-demo-db-v1', SESSAO = 'eia-demo-sessao';
+  const CHAVE = 'eia-demo-db-v2', SESSAO = 'eia-demo-sessao';
   const COMISSAO_AFILIADO = 0.30, REPASSE_CRIADOR = 0.70;
   const agora = () => Math.floor(Date.now() / 1000);
 
@@ -17,7 +17,7 @@
       const d = agora() - db.gerado;
       db.usuarios.forEach(x => x.criado += d);
       db.cursos.forEach(x => { x.criado += d; x.atualizado += d; });
-      ['matriculas', 'progresso', 'cliques'].forEach(t => db[t].forEach(x => x.criado += d));
+      ['matriculas', 'progresso', 'cliques', 'avaliacoes'].forEach(t => (db[t] = db[t] || []).forEach(x => x.criado += d));
       salvar();
     }
   }
@@ -52,15 +52,34 @@
   }
   function iniciarSessao(u) { try { localStorage.setItem(SESSAO, u.id); } catch (e) {} return { usuario: perfil(u) }; }
 
+  const media = l => l.length ? Math.round(l.reduce((s, a) => s + a.nota, 0) / l.length * 10) / 10 : 0;
+  function selo(alunos, nota, n, criado) {
+    if (alunos >= 30) return 'Mais vendido';
+    if (n >= 4 && nota >= 4.7) return 'Mais bem avaliado';
+    if (agora() - criado < 21 * 86400) return 'Novo';
+    return '';
+  }
   function cursoPublico(r, detalhado, liberado) {
     const mods = r.modulos || [], autor = usuarioPorId(r.autor_id);
+    const avs = db.avaliacoes.filter(a => a.curso_id === r.id), nota = media(avs);
+    const alunos = db.matriculas.filter(m => m.curso_id === r.id).length;
     const d = {
       id: r.id, slug: r.slug, titulo: r.titulo, resumo: r.resumo, categoria: r.categoria, nivel: r.nivel, preco: r.preco, cor: r.cor,
-      status: r.status, aulas: contarAulas(mods), minutos: duracao(mods), alunos: db.matriculas.filter(m => m.curso_id === r.id).length,
+      preco_original: r.preco_original || 0, nota, avaliacoes: avs.length, selo: selo(alunos, nota, avs.length, r.criado),
+      aprender: (r.aprender || []).slice(0, 3), atualizado: r.atualizado,
+      status: r.status, aulas: contarAulas(mods), minutos: duracao(mods), alunos,
       autor: { id: autor.id, nome: autor.nome, bio: autor.bio, selo: autor.papel === 'professor' ? 'Professor da casa' : 'Parceiro criador' },
     };
     if (detalhado) {
       d.descricao = r.descricao;
+      d.aprender = r.aprender || [];
+      d.requisitos = r.requisitos || [];
+      const ids = new Set(db.cursos.filter(c => c.autor_id === autor.id && c.status === 'publicado').map(c => c.id));
+      const aAvs = db.avaliacoes.filter(a => ids.has(a.curso_id));
+      Object.assign(d.autor, { cursos: ids.size, nota: media(aAvs), avaliacoes: aAvs.length, alunos: new Set(db.matriculas.filter(m => ids.has(m.curso_id)).map(m => m.usuario_id)).size });
+      d.distribuicao = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      avs.forEach(a => d.distribuicao[a.nota]++);
+      d.comentarios = avs.filter(a => a.texto).sort((a, b) => b.criado - a.criado).slice(0, 12).map(a => ({ nome: usuarioPorId(a.usuario_id)?.nome || 'Aluno', nota: a.nota, texto: a.texto, criado: a.criado }));
       d.modulos = mods.map(m => ({ titulo: m.titulo || '', aulas: (m.aulas || []).map(a => ({ id: a.id, titulo: a.titulo || '', min: a.min || 0, gratis: !!a.gratis, tipo: a.video ? 'video' : 'texto', bloqueada: !(liberado || a.gratis) })) }));
     }
     return d;
@@ -110,7 +129,18 @@
       if (r.status !== 'publicado' && !dono) erro('Curso não encontrado.', 404);
       const mat = !!(u && matriculado(u.id, r.id));
       const feitas = u ? db.progresso.filter(p => p.usuario_id === u.id && p.curso_id === r.id).map(p => p.aula_id) : [];
-      return { curso: cursoPublico(r, true, mat || dono), matriculado: mat, feitas };
+      const minha = u ? db.avaliacoes.find(a => a.usuario_id === u.id && a.curso_id === r.id) : null;
+      return { curso: cursoPublico(r, true, mat || dono), matriculado: mat, feitas, minha_avaliacao: minha ? { nota: minha.nota, texto: minha.texto } : null };
+    },
+    avaliar(d) {
+      const u = exigir('aluno'), r = db.cursos.find(c => c.id === +d.curso_id);
+      if (!r || !matriculado(u.id, r.id)) erro('Só quem está matriculado pode avaliar o curso.', 403);
+      const nota = parseInt(d.nota, 10);
+      if (!(nota >= 1 && nota <= 5)) erro('Escolha de 1 a 5 estrelas.');
+      db.avaliacoes = db.avaliacoes.filter(a => !(a.usuario_id === u.id && a.curso_id === r.id));
+      db.avaliacoes.push({ usuario_id: u.id, curso_id: r.id, nota, texto: (d.texto || '').trim().slice(0, 1200), criado: agora() });
+      salvar();
+      return { ok: true };
     },
     clique(d) {
       const ref = (d.ref || '').slice(0, 20);
@@ -119,11 +149,16 @@
     },
     matricular(d) {
       const u = exigir('aluno');
-      const r = db.cursos.find(c => c.id === +d.curso_id && c.status === 'publicado');
-      if (!r) erro('Curso indisponível.', 404);
       const ref = db.usuarios.find(x => x.ref === (d.ref || '').slice(0, 20) && x.papel === 'parceiro');
-      if (!matriculado(u.id, r.id)) { db.matriculas.push({ id: prox('matriculas'), usuario_id: u.id, curso_id: r.id, ref_id: ref && ref.id !== r.autor_id ? ref.id : null, valor: r.preco, criado: agora() }); salvar(); }
-      return { ok: true, slug: r.slug };
+      const slugs = [];
+      (d.curso_ids || [d.curso_id]).slice(0, 50).forEach(cid => {
+        const r = db.cursos.find(c => c.id === +cid && c.status === 'publicado'); if (!r) return;
+        if (!matriculado(u.id, r.id)) db.matriculas.push({ id: prox('matriculas'), usuario_id: u.id, curso_id: r.id, ref_id: ref && ref.id !== r.autor_id ? ref.id : null, valor: r.preco, criado: agora() });
+        slugs.push(r.slug);
+      });
+      if (!slugs.length) erro('Curso indisponível.', 404);
+      salvar();
+      return { ok: true, slug: slugs[0], slugs };
     },
     aula(d) {
       const u = eu(), r = db.cursos.find(c => c.slug === d.curso);
@@ -181,7 +216,8 @@
         const aulas = (mm.aulas || []).slice(0, 60).map(a => ({ id: (a.id || aleatorio(4)).slice(0, 16), titulo: (a.titulo || '').trim().slice(0, 140), min: Math.max(0, Math.min(600, +a.min || 0)), gratis: !!a.gratis, video: (a.video || '').trim().slice(0, 300), texto: (a.texto || '').slice(0, 20000) })).filter(a => a.titulo);
         if ((mm.titulo || '').trim() || aulas.length) mods.push({ titulo: (mm.titulo || 'Módulo').trim().slice(0, 120), aulas });
       });
-      const campos = { titulo, resumo: (d.resumo || '').slice(0, 240), descricao: (d.descricao || '').slice(0, 6000), categoria: (d.categoria || 'Fundamentos').slice(0, 40), nivel: (d.nivel || 'Iniciante').slice(0, 20), preco: Math.max(0, Math.min(9999, +d.preco || 0)), cor: (d.cor || 'lima').slice(0, 12), modulos: mods };
+      const lista = v => (typeof v === 'string' ? v.split('\n') : v || []).map(x => String(x).trim().slice(0, 200)).filter(Boolean).slice(0, 12);
+      const campos = { aprender: lista(d.aprender), requisitos: lista(d.requisitos), preco_original: Math.max(0, Math.min(9999, +d.preco_original || 0)), titulo, resumo: (d.resumo || '').slice(0, 240), descricao: (d.descricao || '').slice(0, 6000), categoria: (d.categoria || 'Fundamentos').slice(0, 40), nivel: (d.nivel || 'Iniciante').slice(0, 20), preco: Math.max(0, Math.min(9999, +d.preco || 0)), cor: (d.cor || 'lima').slice(0, 12), modulos: mods };
       const acao = d.acao || 'salvar';
       let r = d.id ? db.cursos.find(c => c.id === +d.id && c.autor_id === u.id) : null;
       if (d.id && !r) erro('Curso não encontrado.', 404);

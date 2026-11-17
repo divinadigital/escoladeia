@@ -8,77 +8,145 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/udemy.css">
   <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
 </head>
 <body>
 <div id="topo"></div>
 <main id="conteudo">
-  <section class="course-hero"><div class="wrap course-hero__grid" id="hero">
-    <div><div class="sk" style="height:16px;width:180px"></div><div class="sk" style="height:56px;width:90%;margin:20px 0"></div><div class="sk" style="height:18px;width:70%"></div></div>
-    <div class="buy"><div class="buy__cover sk"></div><div class="sk" style="height:40px;width:50%"></div></div>
-  </div></section>
-  <section class="sec" style="padding-top:56px"><div class="wrap" style="max-width:860px;margin-left:max(16px, calc((100% - 1200px) / 2))" id="grade"></div></section>
+  <section class="c-top"><div class="wrap c-top__grid"><div id="topo-curso">
+    <div class="sk" style="height:14px;width:200px;opacity:.3"></div><div class="sk" style="height:44px;width:85%;margin:18px 0;opacity:.3"></div><div class="sk" style="height:18px;width:65%;opacity:.3"></div>
+  </div></div></section>
+  <div class="wrap c-main"><div id="principal"></div><aside id="lateral"></aside></div>
 </main>
 <div id="rodape"></div>
 <script src="assets/app.js"></script>
 <script>
 (async () => {
-  const { $, $$, api, esc, brl, capa, avatar, horas, qs, eu, toast, confete, refAtual, efeitos } = EIA;
+  const { $, $$, api, esc, brl, moeda, capa, avatar, horas, qs, eu, toast, confete, refAtual, efeitos, md, estrelas, nota1, seloHtml, carrinho, trilho, cardCurso, dataBR } = EIA;
   const slug = qs('c');
   let j;
   try { j = await api('curso', { slug }); }
-  catch (e) { $('#hero').innerHTML = `<div class="empty" style="grid-column:1/-1">${esc(e.message)} <a href="cursos.html" style="text-decoration:underline">Ver cursos</a></div>`; $('#grade').innerHTML = ''; return; }
+  catch (e) { $('#topo-curso').innerHTML = `<h1>${esc(e.message)}</h1><a class="lnk" href="cursos.html">Ver todos os cursos</a>`; return; }
   const c = j.curso, u = await eu();
   document.title = c.titulo + ' — Escola de IA';
   const todas = c.modulos.flatMap(m => m.aulas), feitas = new Set(j.feitas);
   const primeira = todas.find(a => !feitas.has(a.id)) || todas[0];
+  const previa = todas.find(a => a.gratis);
   const pct = todas.length ? Math.round(feitas.size / todas.length * 100) : 0;
   const dono = u && u.id === c.autor.id;
+  const mesAno = ts => new Date(ts * 1000).toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' });
 
-  let acao;
-  if (j.matriculado) acao = `<a class="btn btn--primary btn--lg" href="aula.html?c=${c.slug}&a=${primeira.id}">${feitas.size ? 'Continuar curso' : 'Começar a assistir'} <span class="arr">→</span></a><div class="prog" style="margin:14px 8px 0"><i style="width:${pct}%"></i></div><p class="muted" style="font-size:13px;margin:8px">${pct}% concluído</p>`;
-  else if (dono) acao = `<a class="btn btn--dark btn--lg" href="editor.html?id=${c.id}">Editar este curso</a>`;
-  else if (u && u.papel !== 'aluno') acao = `<button class="btn btn--ghost btn--lg" disabled>Matrículas são feitas com conta de aluno</button>`;
-  else acao = `<button class="btn btn--primary btn--lg magnetic" id="matricular">${c.preco > 0 ? 'Matricular agora' : 'Começar grátis'} <span class="arr">→</span></button>${c.preco > 0 ? '<p class="muted" style="font-size:12.5px;margin:10px 8px 0;text-align:center">Modo demonstração: o pagamento ainda não está conectado, a matrícula é liberada na hora.</p>' : ''}`;
+  // ---------- faixa escura do topo
+  $('#topo-curso').innerHTML = `
+    <nav class="crumbs" aria-label="Você está em"><a href="cursos.html">Cursos</a><span aria-hidden="true">›</span><a href="cursos.html?cat=${encodeURIComponent(c.categoria)}">${esc(c.categoria)}</a><span aria-hidden="true">›</span><span>${esc(c.nivel)}</span></nav>
+    <h1 data-split>${esc(c.titulo)}</h1>
+    <p class="lead">${esc(c.resumo)}</p>
+    <div class="meta-row" style="align-items:center">${seloHtml(c)}${c.avaliacoes ? `<span class="nota"><b>${nota1(c.nota)}</b>${estrelas(c.nota)}<a class="lnk" href="#avaliacoes">(${c.avaliacoes} avaliações)</a></span>` : ''}<span>${c.alunos.toLocaleString('pt-BR')} alunos</span></div>
+    <p class="meta-row" style="margin:10px 0 0">Criado por <a class="lnk" href="#instrutor">${esc(c.autor.nome)}</a> <span class="tag" style="background:rgb(255 255 255 / .12)">${esc(c.autor.selo)}</span></p>
+    <p class="meta-row" style="margin:8px 0 0"><span>◷ Última atualização ${mesAno(c.atualizado)}</span><span>🌐 Português</span><span>${c.aulas} aulas · ${horas(c.minutos)}</span></p>
+    ${c.status !== 'publicado' ? `<p class="tag tag--warn" style="margin-top:14px">Status: ${c.status === 'em_analise' ? 'em análise' : 'rascunho'}</p>` : ''}`;
 
-  $('#hero').innerHTML = `
-    <div>
-      <a href="cursos.html?cat=${encodeURIComponent(c.categoria)}" class="eyebrow">${esc(c.categoria)} · ${esc(c.nivel)}</a>
-      <h1 data-split>${esc(c.titulo)}</h1>
-      <p class="lead">${esc(c.resumo)}</p>
-      <div class="meta-row" style="margin:26px 0"><span><b>${c.aulas}</b> aulas</span><span><b>${horas(c.minutos)}</b> de conteúdo</span><span><b>${c.alunos}</b> alunos</span><span><b>${c.modulos.length}</b> módulos</span></div>
-      <div class="panel" style="display:flex;gap:16px;align-items:center;max-width:560px;padding:18px">${avatar(c.autor.nome, 52)}<div><b>${esc(c.autor.nome)}</b> <span class="tag tag--light" style="margin-left:6px">${esc(c.autor.selo)}</span><p class="muted" style="margin:4px 0 0;font-size:14px">${esc(c.autor.bio || '')}</p></div></div>
-      <div class="prose" style="margin-top:30px;color:var(--muted)"><p>${esc(c.descricao || '')}</p></div>
-    </div>
-    <aside class="buy">
-      <div class="buy__cover">${capa(c.slug, c.cor, c.titulo)}</div>
-      <div class="buy__price">${brl(c.preco)}</div>
-      <ul><li>✓ Acesso a todas as ${c.aulas} aulas</li><li>✓ Progresso salvo automaticamente</li><li>✓ ${todas.filter(a => a.gratis).length} aulas abertas para experimentar</li></ul>
-      ${acao}
-      ${c.status !== 'publicado' ? `<p class="tag tag--warn" style="margin:12px 8px 0">Status: ${c.status === 'em_analise' ? 'em análise' : 'rascunho'}</p>` : ''}
-    </aside>`;
-
-  const ico = (a) => feitas.has(a.id) ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="m5 12 5 5 9-10"/></svg>'
-    : a.bloqueada ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
-    : '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l12-7z"/></svg>';
-  $('#grade').innerHTML = `<span class="eyebrow">Conteúdo do curso</span><h2 class="h3" style="margin:12px 0 24px">${c.modulos.length} módulos · ${c.aulas} aulas</h2>
-    <div class="acc">${c.modulos.map((m, i) => `<div class="acc__item${i === 0 ? ' is-open' : ''}"><button class="acc__btn" type="button" aria-expanded="${i === 0}"><span class="mono muted" style="font-size:12px">${String(i + 1).padStart(2, '0')}</span>${esc(m.titulo)}<small>${m.aulas.length} aulas · ${horas(m.aulas.reduce((s, a) => s + a.min, 0))}</small><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
-      <div class="acc__panel"><div>${m.aulas.map(a => `<a class="lesson${feitas.has(a.id) ? ' is-done' : ''}${a.bloqueada ? ' is-locked' : ''}" href="${a.bloqueada ? '#' : `aula.html?c=${c.slug}&a=${a.id}`}" ${a.bloqueada ? 'data-lock' : ''}><span class="lesson__ico">${ico(a)}</span>${esc(a.titulo)}${a.gratis && !j.matriculado ? '<span class="tag tag--ok">Aula aberta</span>' : ''}<span class="lesson__min">${a.min} min</span></a>`).join('')}</div></div></div>`).join('')}</div>`;
-
-  $$('.acc__btn').forEach(b => b.addEventListener('click', () => { const it = b.parentElement, on = !it.classList.contains('is-open'); it.classList.toggle('is-open', on); b.setAttribute('aria-expanded', on); }));
-  $$('[data-lock]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); toast('Matricule-se para liberar esta aula.'); $('#matricular')?.focus(); }));
-  efeitos($('#hero'));
-
-  const btn = $('#matricular');
-  btn?.addEventListener('click', async () => {
+  // ---------- card de compra
+  const desc = c.preco_original > c.preco && c.preco > 0 ? Math.round((1 - c.preco / c.preco_original) * 100) : 0;
+  let acoes;
+  if (j.matriculado) acoes = `<a class="btn btn--primary btn--lg" href="aula.html?c=${c.slug}&a=${primeira.id}">${feitas.size ? 'Continuar curso' : 'Ir para o curso'} <span class="arr">→</span></a><div class="prog" style="margin-top:6px"><i style="width:${pct}%"></i></div><p class="muted" style="font-size:13px;margin:0">Você concluiu ${pct}% do curso</p>`;
+  else if (dono) acoes = `<a class="btn btn--dark btn--lg" href="editor.html?id=${c.id}">Editar este curso</a>`;
+  else if (u && u.papel !== 'aluno') acoes = `<button class="btn btn--ghost btn--lg" disabled>Matrículas são feitas com conta de aluno</button>`;
+  else if (!(c.preco > 0)) acoes = `<button class="btn btn--primary btn--lg" id="comprar">Matricular-se gratuitamente</button>`;
+  else acoes = `<button class="btn btn--primary btn--lg" id="addCar"></button><button class="btn btn--ghost btn--lg" id="comprar">Comprar agora</button><p class="garantia">Garantia de devolução do dinheiro em 30 dias</p><p class="garantia" style="opacity:.8">Modo demonstração: o pagamento ainda não está conectado.</p>`;
+  $('#lateral').innerHTML = `<div class="compra">
+    <a class="compra__cover" ${previa ? `href="aula.html?c=${c.slug}&a=${previa.id}"` : ''}>${capa(c.slug, c.cor, c.titulo)}${previa ? '<span>▶ Prévia deste curso</span>' : ''}</a>
+    <div class="compra__body">
+      ${c.preco > 0 ? `<div class="compra__preco"><b>${brl(c.preco)}</b>${desc ? `<s>${brl(c.preco_original)}</s><em>${desc}% de desconto</em>` : ''}</div>` : '<div class="compra__preco"><b>Grátis</b></div>'}
+      ${acoes}
+      <h3 style="font-size:16px;margin-top:8px">Este curso inclui:</h3>
+      <ul><li>▶ ${horas(c.minutos)} de conteúdo sob demanda</li><li>▤ ${c.aulas} aulas em ${c.modulos.length} módulos</li><li>✎ Exercícios práticos em cada aula</li><li>∞ Acesso total vitalício</li><li>☐ Acesso no celular e no computador</li></ul>
+      <div style="display:flex;gap:14px;justify-content:center;margin-top:6px;font-size:13.5px"><button class="btn btn--quiet btn--sm" type="button" id="compartilhar" style="text-decoration:underline">Compartilhar</button></div>
+    </div></div>`;
+  const pintarCar = () => { const b = $('#addCar'); if (!b) return; const tem = carrinho.tem(c.id); b.textContent = tem ? 'Ir para o carrinho' : 'Adicionar ao carrinho'; };
+  pintarCar(); document.addEventListener('carrinho', pintarCar);
+  $('#addCar')?.addEventListener('click', e => {
+    if (carrinho.tem(c.id)) { location.href = 'carrinho.html'; return; }
+    carrinho.add(c); toast('Adicionado ao carrinho.'); const r = e.currentTarget.getBoundingClientRect(); confete(r.left + r.width / 2, r.top, 40);
+  });
+  $('#compartilhar').addEventListener('click', () => { navigator.clipboard?.writeText(location.href.split('&')[0]).then(() => toast('Link do curso copiado.')); });
+  $('#comprar')?.addEventListener('click', async e => {
+    const btn = e.currentTarget;
     if (!u) { location.href = `entrar.html?perfil=aluno&modo=cadastro&volta=${encodeURIComponent(location.pathname + location.search)}`; return; }
     btn.classList.add('is-loading');
     try {
       await api('matricular', { curso_id: c.id, ref: refAtual() });
+      carrinho.rm(c.id);
       const r = btn.getBoundingClientRect(); confete(r.left + r.width / 2, r.top + r.height / 2);
       toast('Matrícula feita! Bons estudos.');
       setTimeout(() => location.href = `aula.html?c=${c.slug}&a=${todas[0].id}`, 1100);
-    } catch (e) { toast(e.message, 'erro'); btn.classList.remove('is-loading'); }
+    } catch (er) { toast(er.message, 'erro'); btn.classList.remove('is-loading'); }
+  });
+
+  // ---------- conteúdo principal
+  const ico = a => feitas.has(a.id) ? '✓' : a.bloqueada ? '🔒' : '▶';
+  const dist = c.distribuicao, totalAv = Object.values(dist).reduce((s, n) => s + n, 0) || 1;
+  $('#principal').innerHTML = `
+    ${c.aprender.length ? `<section class="box-aprender"><h2>O que você aprenderá</h2><ul class="checks checks--2">${c.aprender.map(a => `<li>${esc(a)}</li>`).join('')}</ul></section>` : ''}
+
+    <section><h2>Conteúdo do curso</h2>
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;font-size:14px"><span class="muted">${c.modulos.length} seções · ${c.aulas} aulas · ${horas(c.minutos)} de duração total</span><button class="btn btn--quiet btn--sm" type="button" id="expandir" style="color:var(--violeta);font-weight:650">Expandir todas as seções</button></div>
+      <div class="acc">${c.modulos.map((m, i) => `<div class="acc__item${i === 0 ? ' is-open' : ''}"><button class="acc__btn" type="button" aria-expanded="${i === 0}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>${esc(m.titulo)}<small>${m.aulas.length} aulas · ${horas(m.aulas.reduce((s, a) => s + a.min, 0))}</small></button>
+        <div class="acc__panel"><div>${m.aulas.map(a => `<a class="lesson${feitas.has(a.id) ? ' is-done' : ''}${a.bloqueada ? ' is-locked' : ''}" href="${a.bloqueada ? '#' : `aula.html?c=${c.slug}&a=${a.id}`}" ${a.bloqueada ? 'data-lock' : ''}><span class="lesson__ico">${ico(a)}</span>${esc(a.titulo)}${a.gratis && !j.matriculado ? '<span style="color:var(--violeta);text-decoration:underline;font-size:13.5px">Prévia</span>' : ''}<span class="lesson__min">${a.min} min</span></a>`).join('')}</div></div></div>`).join('')}</div>
+    </section>
+
+    ${c.requisitos.length ? `<section><h2>Requisitos</h2><ul style="padding-left:20px;margin:0;display:grid;gap:6px">${c.requisitos.map(r => `<li>${esc(r)}</li>`).join('')}</ul></section>` : ''}
+
+    <section><h2>Descrição</h2><div class="prose" style="font-size:16px;color:var(--muted)"><p>${esc(c.descricao || c.resumo)}</p></div></section>
+
+    <section class="instrutor" id="instrutor"><h2 style="margin:0">Instrutor</h2>
+      <a class="instrutor__nome" href="cursos.html?q=${encodeURIComponent(c.autor.nome)}">${esc(c.autor.nome)}</a><span class="muted" style="margin-top:-8px">${esc(c.autor.selo)}</span>
+      <div class="instrutor__top">${avatar(c.autor.nome, 96)}<div class="instrutor__stats">
+        <span>★ ${nota1(c.autor.nota)} nota de instrutor</span><span>✎ ${c.autor.avaliacoes} avaliações</span><span>👥 ${c.autor.alunos} alunos</span><span>▶ ${c.autor.cursos} ${c.autor.cursos === 1 ? 'curso' : 'cursos'}</span></div></div>
+      <p style="margin:0">${esc(c.autor.bio || '')}</p>
+    </section>
+
+    <section id="avaliacoes"><h2>${c.avaliacoes ? `★ ${nota1(c.nota)} de avaliação do curso · ${c.avaliacoes} avaliações` : 'Avaliações'}</h2>
+      ${c.avaliacoes ? `<div class="aval-resumo"><div class="aval-resumo__n"><b>${nota1(c.nota)}</b>${estrelas(c.nota, 'stars--lg')}<span>Nota do curso</span></div>
+        <div class="barras">${[5, 4, 3, 2, 1].map(n => `<div class="barra"><span class="prog"><i data-w="${Math.round(dist[n] / totalAv * 100)}"></i></span>${estrelas(n)}<span>${Math.round(dist[n] / totalAv * 100)}%</span></div>`).join('')}</div></div>` : '<p class="muted">Este curso ainda não tem avaliações.</p>'}
+      <div id="minhaAval"></div>
+      <div class="reviews">${c.comentarios.map(r => `<div class="review"><div class="review__top">${avatar(r.nome, 40)}<div><b style="font-weight:600">${esc(r.nome.split(' ')[0])} ${esc((r.nome.split(' ')[1] || '')[0] || '')}.</b><br>${estrelas(r.nota)} <span class="muted" style="font-size:12.5px">${dataBR(r.criado)}</span></div></div><p>${esc(r.texto)}</p></div>`).join('')}</div>
+    </section>
+
+    <section id="mais"></section>`;
+
+  $$('.acc__btn').forEach(b => b.addEventListener('click', () => { const it = b.parentElement, on = !it.classList.contains('is-open'); it.classList.toggle('is-open', on); b.setAttribute('aria-expanded', on); }));
+  $('#expandir').addEventListener('click', e => { const abrir = e.currentTarget.textContent.startsWith('Expandir'); $$('.acc__item').forEach(it => { it.classList.toggle('is-open', abrir); $('.acc__btn', it).setAttribute('aria-expanded', abrir); }); e.currentTarget.textContent = abrir ? 'Recolher todas as seções' : 'Expandir todas as seções'; });
+  $$('[data-lock]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); toast('Matricule-se para liberar esta aula.'); }));
+  requestAnimationFrame(() => setTimeout(() => $$('.barra .prog i').forEach(i => i.style.width = i.dataset.w + '%'), 120));
+  efeitos($('#topo-curso'));
+
+  // ---------- avaliar (só aluno matriculado)
+  if (j.matriculado) {
+    let nota = j.minha_avaliacao?.nota || 0;
+    $('#minhaAval').innerHTML = `<div class="panel" style="margin-bottom:22px"><h3 style="font-size:17px;margin-bottom:10px">${j.minha_avaliacao ? 'Sua avaliação' : 'Avalie este curso'}</h3>
+      <div class="dar-nota" role="radiogroup" aria-label="Sua nota">${[1, 2, 3, 4, 5].map(n => `<button type="button" role="radio" aria-label="${n} estrelas" data-n="${n}">★</button>`).join('')}</div>
+      <textarea class="textarea" id="avTexto" placeholder="Conte o que achou (opcional)" style="margin-top:10px;min-height:80px">${esc(j.minha_avaliacao?.texto || '')}</textarea>
+      <button class="btn btn--dark btn--sm" type="button" id="avEnviar" style="margin-top:10px">Enviar avaliação</button></div>`;
+    const pinta = v => $$('.dar-nota button').forEach(b => { b.classList.toggle('on', +b.dataset.n <= v); b.setAttribute('aria-checked', +b.dataset.n === nota); });
+    pinta(nota);
+    $$('.dar-nota button').forEach(b => { b.addEventListener('pointerenter', () => pinta(+b.dataset.n)); b.addEventListener('click', () => { nota = +b.dataset.n; pinta(nota); }); });
+    $('.dar-nota').addEventListener('pointerleave', () => pinta(nota));
+    $('#avEnviar').addEventListener('click', async e => {
+      if (!nota) { toast('Escolha de 1 a 5 estrelas.', 'erro'); return; }
+      e.currentTarget.classList.add('is-loading');
+      try { await api('avaliar', { curso_id: c.id, nota, texto: $('#avTexto').value }); toast('Obrigado pela avaliação!'); setTimeout(() => location.reload(), 700); }
+      catch (er) { toast(er.message, 'erro'); e.currentTarget.classList.remove('is-loading'); }
+    });
+  }
+
+  // ---------- outros cursos
+  api('cursos').then(k => {
+    const outros = k.cursos.filter(x => x.id !== c.id).sort((a, b) => (b.categoria === c.categoria) - (a.categoria === c.categoria) || b.alunos - a.alunos).slice(0, 8);
+    if (!outros.length) return;
+    $('#mais').innerHTML = '<h2>Os alunos também compraram</h2><div id="maisLista"></div>';
+    trilho($('#maisLista'), outros.map(cardCurso).join(''));
   });
 })();
 </script>

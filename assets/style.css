@@ -286,7 +286,7 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.05; letter-spacing: -.035em; font-wei
 .panel { border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); padding: 24px; }
 .panel h2 { font-size: 20px; letter-spacing: -.025em; margin-bottom: 16px; }
 .cols { display: grid; grid-template-columns: 1.6fr 1fr; gap: 18px; align-items: start; }
-@media (max-width: 960px) { .cols { grid-template-columns: 1fr; } }
+@media (max-width: 960px) { .cols { grid-template-columns: minmax(0, 1fr); } .row-list > * { flex-wrap: wrap; } }
 .row-list { display: grid; }
 .row-list > * { display: flex; align-items: center; gap: 14px; padding: 13px 0; border-top: 1px solid var(--line); font-size: 14.5px; }
 .row-list > *:first-child { border-top: 0; }

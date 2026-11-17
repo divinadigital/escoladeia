@@ -17,10 +17,11 @@ server.criar_banco()
 c = sqlite3.connect(tmp)
 c.row_factory = sqlite3.Row
 db = {'gerado': int(time.time())}
-for t in ('usuarios', 'cursos', 'matriculas', 'progresso', 'cliques'):
+for t in ('usuarios', 'cursos', 'matriculas', 'progresso', 'cliques', 'avaliacoes'):
     db[t] = [dict(r) for r in c.execute('SELECT * FROM %s' % t)]
 for cur in db['cursos']:
-    cur['modulos'] = json.loads(cur['modulos'])
+    for k in ('modulos', 'aprender', 'requisitos'):
+        cur[k] = json.loads(cur[k] or '[]')
 c.close()
 
 saida = os.path.join(ROOT, 'assets', 'demo-db.js')

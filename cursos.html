@@ -8,45 +8,100 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/udemy.css">
   <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
 </head>
 <body>
 <div id="topo"></div>
 <main class="dash" id="conteudo">
   <div class="wrap">
-    <div class="dash__head">
-      <div><span class="eyebrow">Catálogo</span><h1 data-split>Todos os <span class="serif">cursos</span></h1></div>
-      <label style="position:relative;width:min(360px,100%)"><span class="sr">Buscar curso</span>
-        <input class="input" id="busca" type="search" placeholder="Buscar por tema, ferramenta ou professor" style="padding-left:42px">
-        <svg style="position:absolute;left:15px;top:15px;color:var(--faint)" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      </label>
+    <div class="dash__head" style="margin-bottom:22px">
+      <div><span class="eyebrow">Catálogo</span><h1 id="titulo">Todos os <span class="serif">cursos</span></h1></div>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;margin-bottom:26px">
-      <div class="tabs" id="tabsCat" role="tablist"><button type="button" data-v="" aria-selected="true">Todos</button><button type="button" data-v="Fundamentos">Fundamentos</button><button type="button" data-v="Prompts">Prompts</button><button type="button" data-v="Automação">Automação</button><button type="button" data-v="Programação">Programação</button><button type="button" data-v="Criação">Criação</button><button type="button" data-v="Negócios">Negócios</button></div>
-      <div class="tabs" id="tabsNivel"><button type="button" data-v="" aria-selected="true">Qualquer nível</button><button type="button" data-v="Iniciante">Iniciante</button><button type="button" data-v="Intermediário">Intermediário</button><button type="button" data-v="Avançado">Avançado</button></div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px">
+      <button class="btn btn--ghost btn--sm btn-filtros" type="button" id="abrirFiltros" aria-expanded="false" aria-controls="filtros">Filtrar</button>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px"><span class="muted">Classificar por</span>
+        <select class="select input--sm" id="ordem" style="width:auto;height:38px;padding:0 12px"><option value="relevancia">Mais relevantes</option><option value="alunos">Mais populares</option><option value="nota">Mais bem avaliados</option><option value="recentes">Mais recentes</option><option value="menor">Menor preço</option></select></label>
+      <button class="btn btn--quiet btn--sm" type="button" id="limpar" hidden>Limpar filtros</button>
+      <span class="muted" id="contagem" style="margin-left:auto;font-size:14px;font-weight:550" aria-live="polite"></span>
     </div>
-    <p class="muted" id="contagem" style="font-size:14px;margin:0 0 16px" aria-live="polite"></p>
-    <div class="grid-cursos" id="grid"></div>
+    <div class="cat-layout">
+      <aside class="filtros" id="filtros" aria-label="Filtros">
+        <details open><summary>Avaliações</summary><div id="fNota"></div></details>
+        <details open><summary>Trilha</summary><div id="fCat"></div></details>
+        <details open><summary>Nível</summary><div id="fNivel"></div></details>
+        <details open><summary>Preço</summary><div id="fPreco"></div></details>
+        <details><summary>Duração</summary><div id="fDur"></div></details>
+      </aside>
+      <div class="lista-res" id="lista"></div>
+    </div>
   </div>
 </main>
 <div id="rodape"></div>
 <script src="assets/app.js"></script>
 <script>
 (() => {
-  const { $, api, abas, cardCurso, skeletonCards, qs } = EIA;
-  const grid = $('#grid'); grid.innerHTML = skeletonCards(6);
-  let todos = [], f = { cat: qs('cat') || '', nivel: '', q: '' };
-  const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  const render = () => {
+  const { $, $$, api, qs, esc, capa, notaHtml, seloHtml, brl, horas, nota1, estrelas, registro } = EIA;
+  const f = { q: qs('q') || '', cat: new Set(qs('cat') ? [qs('cat')] : []), nivel: new Set(), preco: new Set(), dur: new Set(), nota: 0 };
+  if (qs('ordem')) $('#ordem').value = qs('ordem');
+  const norm = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const DUR = { curto: ['Até 1 hora', m => m <= 60], medio: ['1 a 2 horas', m => m > 60 && m <= 120], longo: ['Mais de 2 horas', m => m > 120] };
+  let todos = [];
+
+  $('#lista').innerHTML = Array.from({ length: 4 }, () => `<div class="res"><div class="res__cover sk"></div><div><div class="sk" style="height:20px;width:80%"></div><div class="sk" style="height:14px;width:60%;margin-top:10px"></div><div class="sk" style="height:14px;width:40%;margin-top:10px"></div></div><div class="sk" style="height:20px;width:70px"></div></div>`).join('');
+
+  const passa = (c, ignorar) => {
     const q = norm(f.q);
-    const l = todos.filter(c => (!f.cat || c.categoria === f.cat) && (!f.nivel || c.nivel === f.nivel) && (!q || norm(c.titulo + ' ' + c.resumo + ' ' + c.autor.nome + ' ' + c.categoria).includes(q)));
-    $('#contagem').textContent = l.length + (l.length === 1 ? ' curso' : ' cursos');
-    grid.innerHTML = l.length ? l.map(cardCurso).join('') : '<div class="empty" style="grid-column:1/-1">Nada encontrado. Tente outra palavra ou limpe os filtros.</div>';
+    return (!q || norm(c.titulo + ' ' + c.resumo + ' ' + c.autor.nome + ' ' + c.categoria + ' ' + (c.aprender || []).join(' ')).includes(q))
+      && (ignorar === 'cat' || !f.cat.size || f.cat.has(c.categoria))
+      && (ignorar === 'nivel' || !f.nivel.size || f.nivel.has(c.nivel))
+      && (ignorar === 'preco' || !f.preco.size || f.preco.has(c.preco > 0 ? 'pago' : 'gratis'))
+      && (ignorar === 'dur' || !f.dur.size || [...f.dur].some(k => DUR[k][1](c.minutos)))
+      && (ignorar === 'nota' || c.nota >= f.nota);
   };
-  abas($('#tabsCat'), v => { f.cat = v; render(); }).set(f.cat);
-  abas($('#tabsNivel'), v => { f.nivel = v; render(); });
-  $('#busca').addEventListener('input', e => { f.q = e.target.value; render(); });
-  api('cursos').then(j => { todos = j.cursos; setTimeout(render, 250); }).catch(e => grid.innerHTML = `<div class="empty" style="grid-column:1/-1">${EIA.esc(e.message)}</div>`);
+  const caixa = (grupo, valor, rotulo, n) => `<label><input type="checkbox" data-g="${grupo}" value="${esc(valor)}" ${f[grupo].has(valor) ? 'checked' : ''}> ${rotulo}<span class="cnt">${n}</span></label>`;
+  function filtros() {
+    const conta = (g, fn) => todos.filter(c => passa(c, g) && fn(c)).length;
+    $('#fNota').innerHTML = [4.5, 4, 3.5, 0].map(v => `<label><input type="radio" name="nota" value="${v}" ${f.nota === v ? 'checked' : ''}> ${v ? `${estrelas(v)} ${nota1(v)} ou mais` : 'Qualquer nota'}<span class="cnt">${conta('nota', c => c.nota >= v)}</span></label>`).join('');
+    $('#fCat').innerHTML = EIA.CATS.map(([c]) => caixa('cat', c, c, conta('cat', x => x.categoria === c))).join('');
+    $('#fNivel').innerHTML = ['Iniciante', 'Intermediário', 'Avançado'].map(n => caixa('nivel', n, n, conta('nivel', x => x.nivel === n))).join('');
+    $('#fPreco').innerHTML = caixa('preco', 'pago', 'Pago', conta('preco', x => x.preco > 0)) + caixa('preco', 'gratis', 'Grátis', conta('preco', x => !x.preco));
+    $('#fDur').innerHTML = Object.entries(DUR).map(([k, [r, fn]]) => caixa('dur', k, r, conta('dur', x => fn(x.minutos)))).join('');
+  }
+  function render() {
+    const ord = $('#ordem').value;
+    let l = todos.filter(c => passa(c));
+    const S = { alunos: (a, b) => b.alunos - a.alunos, nota: (a, b) => b.nota - a.nota || b.avaliacoes - a.avaliacoes, recentes: (a, b) => b.atualizado - a.atualizado, menor: (a, b) => a.preco - b.preco,
+      relevancia: (a, b) => (b.alunos + b.nota * 10) - (a.alunos + a.nota * 10) };
+    l.sort(S[ord] || S.relevancia);
+    $('#titulo').innerHTML = f.q ? `${l.length} ${l.length === 1 ? 'resultado' : 'resultados'} para “<span class="serif">${esc(f.q)}</span>”` : f.cat.size === 1 ? `Cursos de <span class="serif">${esc([...f.cat][0])}</span>` : 'Todos os <span class="serif">cursos</span>';
+    $('#contagem').textContent = l.length + (l.length === 1 ? ' resultado' : ' resultados');
+    const ativos = f.q || f.cat.size || f.nivel.size || f.preco.size || f.dur.size || f.nota;
+    $('#limpar').hidden = !ativos;
+    $('#lista').innerHTML = l.length ? l.map((c, i) => { registro.set(c.id, c); return `<article class="res fade-in" style="--i:${i}">
+        <div class="res__cover">${capa(c.slug, c.cor, c.titulo)}</div>
+        <div><h3><a href="curso.html?c=${encodeURIComponent(c.slug)}">${esc(c.titulo)}</a></h3>
+          <p>${esc(c.resumo)}</p>
+          <p style="font-size:12.5px">${esc(c.autor.nome)}</p>
+          ${notaHtml(c)}
+          <p style="font-size:12.5px;color:var(--faint)">${horas(c.minutos)} no total · ${c.aulas} aulas · ${esc(c.nivel)}</p>
+          ${seloHtml(c)}</div>
+        <div class="res__preco">${c.preco > 0 ? `<b>${brl(c.preco)}</b>${c.preco_original > c.preco ? `<s>${brl(c.preco_original)}</s>` : ''}` : '<b>Grátis</b>'}</div></article>`; }).join('')
+      : `<div class="empty">Nenhum curso encontrado. <button class="btn btn--quiet btn--sm" type="button" onclick="document.getElementById('limpar').click()">Limpar filtros</button></div>`;
+    filtros();
+    const u = new URLSearchParams(); if (f.q) u.set('q', f.q); if (f.cat.size === 1) u.set('cat', [...f.cat][0]); if (ord !== 'relevancia') u.set('ordem', ord);
+    history.replaceState(null, '', '?' + u);
+  }
+  $('#filtros').addEventListener('change', e => {
+    const i = e.target;
+    if (i.name === 'nota') f.nota = +i.value;
+    else if (i.dataset.g) i.checked ? f[i.dataset.g].add(i.value) : f[i.dataset.g].delete(i.value);
+    render();
+  });
+  $('#ordem').addEventListener('change', render);
+  $('#limpar').addEventListener('click', () => { f.q = ''; ['cat', 'nivel', 'preco', 'dur'].forEach(k => f[k].clear()); f.nota = 0; $$('.busca input').forEach(i => i.value = ''); render(); });
+  $('#abrirFiltros').addEventListener('click', e => { const on = $('#filtros').classList.toggle('is-open'); e.currentTarget.setAttribute('aria-expanded', on); });
+  api('cursos').then(j => { todos = j.cursos; render(); }).catch(e => $('#lista').innerHTML = `<div class="empty">${esc(e.message)}</div>`);
 })();
 </script>
 </body>

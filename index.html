@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/udemy.css">
   <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
 </head>
 <body>
@@ -24,17 +25,18 @@
     <div class="hero__fade" aria-hidden="true"></div>
     <div class="wrap">
       <a class="badge-live" href="curso.html?c=fundamentos-de-ia-sem-complicacao" data-reveal><i>GRÁTIS</i><span><b>Fundamentos de IA</b> · comece hoje, sem cartão</span></a>
-      <h1 class="display" data-split>Aprenda <span class="serif">inteligência</span> artificial usando <span class="decrypt" data-decrypt="900">IA</span> de verdade.</h1>
-      <p class="lead" data-reveal style="--d:300ms">Cursos curtos e práticos, feitos por professores da casa e por criadores que usam IA todo dia. Você estuda no seu ritmo, acompanha o progresso e aplica no trabalho na mesma semana.</p>
-      <div class="hero__cta" data-reveal style="--d:420ms">
-        <a class="btn btn--primary btn--lg magnetic" href="entrar.html?perfil=aluno&modo=cadastro">Criar conta de aluno <span class="arr">→</span></a>
-        <a class="btn btn--ghost btn--lg" href="cursos.html">Ver os cursos</a>
+      <h1 class="display" data-split style="font-size:clamp(42px,7vw,96px)">Aprenda <span class="serif">inteligência</span> artificial usando <span class="decrypt" data-decrypt="900">IA</span> de verdade.</h1>
+      <p class="lead" data-reveal style="--d:300ms">Cursos curtos e práticos, feitos por professores da casa e por criadores que usam IA todo dia. Estude no seu ritmo e aplique no trabalho na mesma semana.</p>
+      <div data-reveal style="--d:420ms;margin-top:30px">
+        <form class="busca busca--hero" action="cursos.html" role="search"><label class="sr" for="buscaHero">O que você quer aprender?</label><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="buscaHero" name="q" type="search" placeholder="O que você quer aprender? Ex.: prompts, agentes, n8n"></form>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px" aria-label="Buscas populares"><span class="muted" style="font-size:13.5px;align-self:center">Populares:</span>
+          <a class="tag tag--light" href="cursos.html?q=prompt">Prompts</a><a class="tag tag--light" href="cursos.html?q=agente">Agentes</a><a class="tag tag--light" href="cursos.html?q=automa">Automação</a><a class="tag tag--light" href="cursos.html?q=imagens">Imagens</a><a class="tag tag--light" href="cursos.html?q=neg">Negócios</a></div>
       </div>
       <div class="hero__meta" data-reveal style="--d:560ms">
         <div><b id="stCursos">0</b><span>cursos publicados</span></div>
         <div><b id="stAulas">0</b><span>aulas</span></div>
         <div><b id="stAlunos">0</b><span>alunos estudando</span></div>
-        <div><b data-count="30" data-suf="%">0</b><span>de comissão para afiliados</span></div>
+        <div><b id="stNota">–</b><span>nota média dos cursos</span></div>
       </div>
     </div>
   </section>
@@ -46,8 +48,49 @@
     </div>
   </div>
 
+  <!-- CATEGORIAS -->
+  <section class="sec" style="padding-bottom:40px">
+    <div class="wrap">
+      <div class="sec__head" style="margin-bottom:28px">
+        <div><span class="eyebrow">Trilhas</span><h2 class="h2" data-split>Aprenda as habilidades <span class="serif">essenciais</span> da era da IA.</h2></div>
+        <p class="lead" data-reveal>Escolha por onde começar. Cada trilha vai do básico ao avançado.</p>
+      </div>
+      <div class="cats" id="cats"></div>
+    </div>
+  </section>
+
+  <!-- CURSOS EM ALTA -->
+  <section class="sec" style="padding-top:40px;padding-bottom:40px">
+    <div class="wrap">
+      <div class="sec__head" style="margin-bottom:22px;align-items:center"><h2 class="h3" style="font-size:clamp(24px,2.6vw,32px)">Cursos em alta</h2><a class="btn btn--quiet btn--sm" href="cursos.html?ordem=alunos">Ver todos →</a></div>
+      <div id="emAlta"></div>
+    </div>
+  </section>
+
+  <!-- AMPLA SELEÇÃO -->
+  <section class="sec" style="padding-top:40px" id="cursos">
+    <div class="wrap">
+      <h2 class="h3" style="font-size:clamp(24px,2.6vw,32px)">Uma ampla seleção de cursos</h2>
+      <p class="muted" style="margin:8px 0 22px">Escolha entre cursos de professores da casa e de criadores parceiros, revisados pela coordenação.</p>
+      <div class="tabs" id="tabsCat" role="tablist" aria-label="Filtrar por categoria" style="margin-bottom:22px"><button type="button" role="tab" data-v="" aria-selected="true">Todos</button><button type="button" role="tab" data-v="Fundamentos">Fundamentos</button><button type="button" role="tab" data-v="Prompts">Prompts</button><button type="button" role="tab" data-v="Automação">Automação</button><button type="button" role="tab" data-v="Programação">Programação</button><button type="button" role="tab" data-v="Criação">Criação</button><button type="button" role="tab" data-v="Negócios">Negócios</button></div>
+      <div id="selecao" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- DEPOIMENTOS -->
+  <section class="sec" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec__head"><div><span class="eyebrow">Quem estudou aqui</span><h2 class="h2" data-split>Resultados na <span class="serif">mesma</span> semana.</h2></div></div>
+      <div class="depo" data-reveal>
+        <figure><blockquote>Em duas semanas automatizei a triagem dos e-mails do escritório. O curso foi direto ao ponto.</blockquote><figcaption><span class="av" style="width:36px;height:36px;background:#7cc4ff">CM</span><span><b>Carla Mendes</b><br><span class="muted">Automações com IA</span></span></figcaption></figure>
+        <figure><blockquote>Os exercícios no fim de cada aula fazem toda a diferença. Saí com prompts prontos para usar no trabalho.</blockquote><figcaption><span class="av" style="width:36px;height:36px;background:#ffc55a">LF</span><span><b>Lucas Fernandes</b><br><span class="muted">Engenharia de Prompt</span></span></figcaption></figure>
+        <figure><blockquote>Construí meu primeiro agente com ferramentas de verdade. Didática excelente do começo ao fim.</blockquote><figcaption><span class="av" style="width:36px;height:36px;background:#b5a3ff">SA</span><span><b>Sofia Almeida</b><br><span class="muted">Agentes de IA</span></span></figcaption></figure>
+      </div>
+    </div>
+  </section>
+
   <!-- TRÊS PORTAS -->
-  <section class="sec" id="perfis">
+  <section class="sec" id="perfis" style="padding-top:0">
     <div class="wrap">
       <div class="sec__head">
         <div><span class="eyebrow">Três entradas</span><h2 class="h2" data-split>Um portal, cada um com a <span class="serif">sua</span> área.</h2></div>
@@ -59,7 +102,7 @@
           <span class="door__n">01 · ALUNO</span>
           <h3>Estude</h3>
           <p>Seus cursos, o ponto exato onde parou, sequência de estudo e progresso de cada trilha.</p>
-          <ul><li>Continue de onde parou</li><li>Aulas em vídeo e texto</li><li>Progresso e sequência de dias</li></ul>
+          <ul><li>Continue de onde parou</li><li>Aulas em vídeo e texto</li><li>Avalie os cursos que fez</li></ul>
           <span class="btn btn--ghost btn--sm" style="align-self:start">Entrar como aluno <span class="arr">→</span></span>
         </a>
         <a class="door door--feature spot" href="entrar.html?perfil=professor" data-reveal style="--d:100ms">
@@ -67,7 +110,7 @@
           <span class="door__n">02 · PROFESSOR</span>
           <h3>Ensine</h3>
           <p>Estúdio para montar cursos em módulos e aulas, publicar na hora e acompanhar os alunos.</p>
-          <ul><li>Editor de módulos e aulas</li><li>Vídeo do YouTube ou Vimeo e texto</li><li>Alunos, receita e conclusões</li></ul>
+          <ul><li>Editor de módulos e aulas</li><li>Vídeo do YouTube ou Vimeo e texto</li><li>Alunos, receita e avaliações</li></ul>
           <span class="btn btn--primary btn--sm" style="align-self:start">Entrar como professor <span class="arr">→</span></span>
         </a>
         <a class="door spot" href="entrar.html?perfil=parceiro" data-reveal style="--d:200ms">
@@ -82,51 +125,27 @@
     </div>
   </section>
 
-  <!-- CURSOS -->
-  <section class="sec" style="padding-top:0" id="cursos">
-    <div class="wrap">
-      <div class="sec__head">
-        <div><span class="eyebrow">Catálogo</span><h2 class="h2" data-split>Comece pelo que você vai usar <span class="serif">amanhã</span>.</h2></div>
-        <div class="tabs" id="tabsCat" role="tablist" aria-label="Filtrar por categoria"><button type="button" role="tab" data-v="" aria-selected="true">Todos</button><button type="button" role="tab" data-v="Fundamentos">Fundamentos</button><button type="button" role="tab" data-v="Prompts">Prompts</button><button type="button" role="tab" data-v="Automação">Automação</button><button type="button" role="tab" data-v="Programação">Programação</button><button type="button" role="tab" data-v="Criação">Criação</button></div>
-      </div>
-      <div class="grid-cursos" id="gridHome" aria-live="polite"></div>
-      <div style="text-align:center;margin-top:36px"><a class="btn btn--ghost" href="cursos.html">Ver catálogo completo <span class="arr">→</span></a></div>
-    </div>
-  </section>
-
-  <!-- COMO FUNCIONA -->
-  <section class="sec" style="padding-top:0">
-    <div class="wrap">
-      <div class="sec__head"><div><span class="eyebrow">Como funciona</span><h2 class="h2" data-split>Do cadastro à primeira automação.</h2></div></div>
-      <div class="how" data-reveal>
-        <div><b>01</b><h3>Crie a conta</h3><p>Grátis, em 20 segundos. O curso de Fundamentos já fica liberado.</p></div>
-        <div><b>02</b><h3>Escolha a trilha</h3><p>Prompts, automação, criação ou programação, do básico ao avançado.</p></div>
-        <div><b>03</b><h3>Pratique</h3><p>Cada aula termina com um exercício aplicado ao seu trabalho.</p></div>
-        <div><b>04</b><h3>Acompanhe</h3><p>Progresso por curso, sequência de dias e a próxima aula sempre à mão.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- PARCEIROS -->
-  <section class="sec" id="parceiros" style="padding-top:0">
-    <div class="wrap split">
+  <!-- ENSINE / PARCEIROS -->
+  <section class="wrap" id="parceiros" style="padding-bottom:clamp(72px,10vw,130px)">
+    <div class="ensine">
+      <canvas id="ensineRede" aria-hidden="true"></canvas>
       <div>
-        <span class="eyebrow">Programa de parceiros</span>
-        <h2 class="h2" data-split style="margin:14px 0 20px">Indique cursos ou traga as <span class="serif">suas</span> aulas.</h2>
-        <p class="lead" data-reveal>Dois caminhos, uma conta de parceiro.</p>
-        <div class="row-list" data-reveal style="margin-top:26px">
-          <div><span class="tag tag--light">Afiliado</span><span>Ganhe <b>30%</b> de cada matrícula feita pelo seu link. O link vale por 30 dias.</span></div>
-          <div><span class="tag tag--light">Criador</span><span>Publique seus cursos no portal e receba <b>70%</b> de cada venda. A coordenação revisa antes de publicar.</span></div>
-          <div><span class="tag tag--light">Painel</span><span>Cliques, vendas, comissão e repasse em tempo real.</span></div>
-        </div>
-        <a class="btn btn--dark" style="margin-top:28px" href="entrar.html?perfil=parceiro&modo=cadastro">Quero ser parceiro <span class="arr">→</span></a>
+        <span class="eyebrow" style="color:rgb(242 243 238 / .6)">Programa de parceiros</span>
+        <h2 class="h2" data-split style="margin:14px 0 18px">Ensine o que você sabe. Ou indique e <span class="serif">ganhe</span>.</h2>
+        <p>Dois caminhos com uma conta de parceiro:</p>
+        <ul class="checks" style="color:#f2f3ee">
+          <li><b>Afiliado:</b> 30% de cada matrícula feita pelo seu link, que vale 30 dias.</li>
+          <li><b>Criador:</b> publique seus cursos e receba 70% de cada venda. A coordenação revisa antes.</li>
+          <li><b>Painel:</b> cliques, vendas, comissão e repasse em tempo real.</li>
+        </ul>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:22px"><a class="btn btn--primary" style="--lime:#d4ff3a;--lime-ink:#10130a" href="entrar.html?perfil=parceiro&modo=cadastro">Quero ser parceiro <span class="arr">→</span></a><a class="btn btn--ghost" style="color:#f2f3ee;border-color:rgb(255 255 255 / .25)" href="entrar.html?perfil=professor">Sou professor</a></div>
       </div>
-      <div class="calc" data-reveal style="--d:150ms" aria-label="Simulador de ganhos">
+      <div class="calc" aria-label="Simulador de ganhos" style="color:var(--text)">
         <span class="eyebrow">Simulador</span>
         <h3 class="h3" style="margin:12px 0 24px">Quanto você ganharia por mês?</h3>
         <label><span>Vendas por mês <output id="oV">20</output></span><input type="range" id="rV" min="1" max="200" value="20"></label>
         <label><span>Preço médio do curso <output id="oP">R$ 197</output></span><input type="range" id="rP" min="47" max="497" step="10" value="197"></label>
-        <div class="tabs" id="tabsModo" style="margin-top:4px"><button type="button" data-v="afiliado" aria-selected="true">Como afiliado · 30%</button><button type="button" data-v="criador">Como criador · 70%</button></div>
+        <div class="tabs" id="tabsModo" style="margin-top:4px"><button type="button" data-v="afiliado" aria-selected="true">Afiliado · 30%</button><button type="button" data-v="criador">Criador · 70%</button></div>
         <div class="calc__out"><b id="oT">R$ 0</b><span class="muted">por mês</span></div>
       </div>
     </div>
@@ -138,7 +157,8 @@
       <div class="sec__head"><div><span class="eyebrow">Dúvidas</span><h2 class="h2" data-split>Perguntas frequentes</h2></div></div>
       <div class="acc faq" id="faq">
         <div class="acc__item"><button class="acc__btn" type="button" aria-expanded="false">Preciso saber programar?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button><div class="acc__panel"><div><p style="margin:0;padding:0 20px 20px" class="muted">Não. As trilhas de Fundamentos, Prompts, Criação e Negócios são para qualquer pessoa. Só a trilha de Programação pede noções básicas.</p></div></div></div>
-        <div class="acc__item"><button class="acc__btn" type="button" aria-expanded="false">Por que existem logins separados?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button><div class="acc__panel"><div><p style="margin:0;padding:0 20px 20px" class="muted">Cada perfil tem uma área própria: o aluno estuda, o professor cria e acompanha turmas, o parceiro divulga e publica. Você pode ter contas diferentes com o mesmo e-mail.</p></div></div></div>
+        <div class="acc__item"><button class="acc__btn" type="button" aria-expanded="false">Por quanto tempo tenho acesso ao curso?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button><div class="acc__panel"><div><p style="margin:0;padding:0 20px 20px" class="muted">Para sempre. Depois da matrícula, o curso fica na sua área de aluno, com as atualizações que o professor fizer.</p></div></div></div>
+        <div class="acc__item"><button class="acc__btn" type="button" aria-expanded="false">Posso pedir o dinheiro de volta?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button><div class="acc__panel"><div><p style="margin:0;padding:0 20px 20px" class="muted">Sim. Você tem 30 dias de garantia: se o curso não for para você, devolvemos o valor.</p></div></div></div>
         <div class="acc__item"><button class="acc__btn" type="button" aria-expanded="false">Como funciona o link de afiliado?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button><div class="acc__panel"><div><p style="margin:0;padding:0 20px 20px" class="muted">Você gera o link no painel de parceiro. Quem clica fica marcado por 30 dias: qualquer matrícula feita nesse período conta para você.</p></div></div></div>
         <div class="acc__item"><button class="acc__btn" type="button" aria-expanded="false">Posso publicar meus próprios cursos?<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button><div class="acc__panel"><div><p style="margin:0;padding:0 20px 20px" class="muted">Sim. Crie uma conta de parceiro, monte o curso no estúdio e envie para análise. A coordenação revisa e publica, ou devolve com orientações.</p></div></div></div>
       </div>
@@ -159,23 +179,33 @@
 <script src="assets/app.js"></script>
 <script>
 (() => {
-  const { $, $$, api, cardCurso, skeletonCards, abas, rede, brl, efeitos } = EIA;
+  const { $, $$, api, cardCurso, skeletonCards, abas, rede, brl, efeitos, trilho, capa, CATS, esc } = EIA;
   rede($('#heroRede'), { host: $('#hero') });
   rede($('#ctaRede'), { cor: '#d4ff3a', tinta: '#f2f3ee', densidade: 9000 });
+  rede($('#ensineRede'), { cor: '#d4ff3a', tinta: '#f2f3ee', densidade: 14000 });
 
-  // cursos
-  const grid = $('#gridHome'); grid.innerHTML = skeletonCards(3);
+  trilho($('#emAlta'), skeletonCards(4)); trilho($('#selecao'), skeletonCards(4));
   let todos = [];
-  const render = cat => {
-    const lista = todos.filter(c => !cat || c.categoria === cat).slice(0, 6);
-    grid.innerHTML = lista.length ? lista.map(cardCurso).join('') : '<div class="empty" style="grid-column:1/-1">Nenhum curso nesta categoria ainda.</div>';
+  const renderSel = cat => {
+    const l = todos.filter(c => !cat || c.categoria === cat);
+    if (!l.length) { $('#selecao').innerHTML = '<div class="empty">Nenhum curso nesta categoria ainda.</div>'; return; }
+    trilho($('#selecao'), l.map(cardCurso).join(''));
   };
-  abas($('#tabsCat'), render);
+  abas($('#tabsCat'), renderSel);
+
   api('cursos').then(j => {
-    todos = j.cursos; render('');
+    todos = j.cursos;
+    trilho($('#emAlta'), [...todos].sort((a, b) => b.alunos - a.alunos).map(cardCurso).join(''));
+    renderSel('');
+    // categorias com contagem e arte gerada
+    const cores = ['lima', 'coral', 'ceu', 'violeta', 'rosa', 'ambar'];
+    $('#cats').innerHTML = CATS.map(([c, d], i) => { const n = todos.filter(x => x.categoria === c).length; return `<a class="cat" href="cursos.html?cat=${encodeURIComponent(c)}" data-reveal style="--d:${i * 60}ms"><div class="cat__art">${capa('trilha-' + c, cores[i], c)}</div><div class="cat__txt"><span><b style="display:block;color:var(--text)">${c}</b>${esc(d)}</span><span class="tag tag--light">${n} ${n === 1 ? 'curso' : 'cursos'}</span></div></a>`; }).join('');
+    efeitos($('#cats'));
+    const avs = todos.filter(c => c.avaliacoes), media = avs.reduce((s, c) => s + c.nota * c.avaliacoes, 0) / Math.max(1, avs.reduce((s, c) => s + c.avaliacoes, 0));
     $('#stCursos').dataset.count = j.stats.cursos; $('#stAulas').dataset.count = j.stats.aulas; $('#stAlunos').dataset.count = j.stats.alunos;
+    $('#stNota').textContent = media.toFixed(1).replace('.', ',') + ' ★';
     efeitos($('.hero__meta'));
-  }).catch(e => { grid.innerHTML = `<div class="empty" style="grid-column:1/-1">${EIA.esc(e.message)}</div>`; });
+  }).catch(e => { $('#emAlta').innerHTML = `<div class="empty">${esc(e.message)}</div>`; });
 
   // simulador
   let modo = 'afiliado';

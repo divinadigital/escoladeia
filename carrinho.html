@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Carrinho — Escola de IA</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/udemy.css">
+  <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
+</head>
+<body>
+<div id="topo"></div>
+<main class="dash" id="conteudo"><div class="wrap">
+  <div class="dash__head"><div><span class="eyebrow">Compras</span><h1>Carrinho de <span class="serif">compras</span></h1></div></div>
+  <div class="car">
+    <section><p style="font-weight:650;margin:0 0 6px" id="qtd"></p><div id="itens"></div></section>
+    <aside class="car__total" id="total" hidden>
+      <span class="muted" style="font-weight:600">Total:</span>
+      <b id="tValor">R$ 0</b>
+      <span id="tDe" class="muted"></span>
+      <button class="btn btn--primary btn--lg" type="button" id="finalizar">Finalizar compra <span class="arr">→</span></button>
+      <p class="garantia">Garantia de devolução do dinheiro em 30 dias</p>
+      <p class="muted" style="font-size:12.5px;margin:0;padding:12px;border:1px dashed var(--line-2);border-radius:12px">Modo demonstração: o pagamento ainda não está conectado. Ao finalizar, a matrícula nos cursos é liberada na hora.</p>
+    </aside>
+  </div>
+  <section id="sugestoes" style="margin-top:60px"></section>
+</div></main>
+<div id="rodape"></div>
+<script src="assets/app.js"></script>
+<script>
+(() => {
+  const { $, $$, api, esc, brl, capa, horas, carrinho, eu, toast, confete, refAtual, trilho, cardCurso, notaHtml } = EIA;
+  function render() {
+    const l = carrinho.ler();
+    $('#qtd').textContent = l.length === 1 ? '1 curso no carrinho' : `${l.length} cursos no carrinho`;
+    $('#total').hidden = !l.length;
+    $('#itens').innerHTML = l.length ? l.map(c => `<div class="car__item">
+        <a class="res__cover" href="curso.html?c=${c.slug}">${capa(c.slug, c.cor, c.titulo)}</a>
+        <div><h3><a href="curso.html?c=${c.slug}">${esc(c.titulo)}</a></h3><p class="muted" style="font-size:13px;margin:4px 0">Por ${esc(c.autor)}</p>
+          ${notaHtml(c)}<p class="muted" style="font-size:12.5px;margin:4px 0 0">${horas(c.minutos || 0)} no total · ${c.aulas} aulas · ${esc(c.nivel || '')}</p></div>
+        <div style="text-align:right;display:grid;gap:4px;align-content:start"><b style="font-size:17px">${brl(c.preco)}</b>${c.preco_original > c.preco ? `<s class="muted" style="font-size:14px">${brl(c.preco_original)}</s>` : ''}<button class="btn btn--quiet" type="button" data-rm="${c.id}">Remover</button></div></div>`).join('')
+      : `<div class="empty" style="padding:50px 20px"><p style="font-size:18px;color:var(--text);margin:0 0 8px">Seu carrinho está vazio.</p><p style="margin:0 0 18px">Continue procurando e encontre um curso para você.</p><a class="btn btn--primary" href="cursos.html">Continuar comprando</a></div>`;
+    const tot = l.reduce((s, c) => s + c.preco, 0), de = l.reduce((s, c) => s + Math.max(c.preco, c.preco_original || 0), 0);
+    $('#tValor').textContent = brl(tot);
+    $('#tDe').innerHTML = de > tot ? `<s>${brl(de)}</s> · ${Math.round((1 - tot / de) * 100)}% de desconto` : '';
+  }
+  $('#itens').addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if (b) { carrinho.rm(+b.dataset.rm); toast('Curso removido do carrinho.'); } });
+  document.addEventListener('carrinho', render); render();
+
+  $('#finalizar').addEventListener('click', async e => {
+    const btn = e.currentTarget, u = await eu();
+    if (!u) { location.href = 'entrar.html?perfil=aluno&modo=cadastro&volta=' + encodeURIComponent(location.pathname); return; }
+    if (u.papel !== 'aluno') { toast('Entre com uma conta de aluno para comprar.', 'erro'); return; }
+    btn.classList.add('is-loading');
+    try {
+      const ids = carrinho.ler().map(c => c.id);
+      const r = await api('matricular', { curso_ids: ids, ref: refAtual() });
+      carrinho.limpar();
+      const rc = btn.getBoundingClientRect(); confete(rc.left + rc.width / 2, rc.top);
+      toast(r.slugs.length === 1 ? 'Compra concluída! O curso já está na sua área.' : `Compra concluída! ${r.slugs.length} cursos liberados.`);
+      setTimeout(() => location.href = 'aluno.html', 1300);
+    } catch (er) { toast(er.message, 'erro'); btn.classList.remove('is-loading'); }
+  });
+
+  // sugestões: cursos que ainda não estão no carrinho
+  api('cursos').then(j => {
+    const no = new Set(carrinho.ler().map(c => c.id));
+    const l = j.cursos.filter(c => !no.has(c.id) && c.preco > 0).sort((a, b) => b.alunos - a.alunos);
+    if (!l.length) return;
+    $('#sugestoes').innerHTML = '<h2 class="h3" style="margin-bottom:18px">Você também pode gostar</h2><div id="sugLista"></div>';
+    trilho($('#sugLista'), l.map(cardCurso).join(''));
+  });
+})();
+</script>
+</body>
+</html>

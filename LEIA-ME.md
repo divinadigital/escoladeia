@@ -48,8 +48,9 @@ Troque ou remova essas contas antes de publicar.
 | Página | O que é |
 |---|---|
 | `index.html` | Página inicial: rede neural interativa, catálogo, três áreas, simulador de ganhos do parceiro, dúvidas |
-| `cursos.html` | Catálogo com busca e filtros por categoria e nível |
-| `curso.html?c=slug` | Página do curso: módulos, aulas abertas, matrícula |
+| `cursos.html` | Catálogo no estilo da busca da Udemy: filtros por avaliação, trilha, nível, preço e duração, e ordenação |
+| `curso.html?c=slug` | Página do curso: faixa escura, "O que você aprenderá", conteúdo, requisitos, instrutor, avaliações com estrelas e card de compra |
+| `carrinho.html` | Carrinho: junta vários cursos e finaliza a compra de uma vez (vira matrícula) |
 | `aula.html` | Player: vídeo (YouTube, Vimeo ou .mp4), texto da aula, anotações, marcar como concluída |
 | `entrar.html` | Login e cadastro, com abas Aluno / Professor / Parceiro |
 | `aluno.html` | Painel do aluno: continuar de onde parou, progresso, sequência de dias |
@@ -58,11 +59,19 @@ Troque ou remova essas contas antes de publicar.
 | `editor.html` | Estúdio para criar e editar cursos (professor publica direto; parceiro envia para análise) |
 | `admin.html` | Coordenação: aprovar ou devolver cursos de parceiros |
 
+## Inspiração
+
+O visual de marketplace (busca no topo, cards com estrelas, selos "Mais vendido", preço com desconto riscado,
+janela "O que você aprenderá" ao passar o mouse, página de curso e carrinho) foi inspirado na Udemy.
+Os efeitos vêm do reactbits.dev e do transitions.dev, refeitos em JavaScript puro.
+
 ## Regras de negócio (em `server.py`)
 
 - `COMISSAO_AFILIADO = 0.30`: o afiliado ganha 30% das matrículas feitas pelo link dele (o link vale 30 dias).
 - `REPASSE_CRIADOR = 0.70`: o parceiro criador recebe 70% das vendas dos cursos dele.
 - O mesmo e-mail pode ter contas diferentes em cada área.
+- Selos: **Mais vendido** a partir de 30 alunos; **Mais bem avaliado** com nota 4,7 ou mais e pelo menos 4 avaliações; **Novo** nos primeiros 21 dias.
+- Só aluno matriculado pode avaliar o curso (1 a 5 estrelas, com comentário opcional).
 
 ## Ainda falta para ir ao ar
 

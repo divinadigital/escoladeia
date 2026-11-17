@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/udemy.css">
   <script>(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('eia-tema');if(t)d.dataset.theme=t;}catch(e){}})();</script>
 </head>
 <body>
@@ -31,8 +32,11 @@
           <label class="field"><span>Categoria</span><select class="select" name="categoria"><option>Fundamentos</option><option>Prompts</option><option>Automação</option><option>Programação</option><option>Criação</option><option>Negócios</option></select></label>
           <label class="field"><span>Nível</span><select class="select" name="nivel"><option>Iniciante</option><option>Intermediário</option><option>Avançado</option></select></label>
           <label class="field"><span>Preço (R$)</span><input class="input" name="preco" type="number" min="0" step="1" value="0"><small>Use 0 para curso gratuito.</small></label>
-          <div class="field"><span>Cor da capa</span><div class="swatches" id="cores"></div></div>
+          <label class="field"><span>Preço "de" (R$, opcional)</span><input class="input" name="preco_original" type="number" min="0" step="1" value="0"><small>Aparece riscado ao lado do preço, como desconto.</small></label>
+          <div class="field" style="grid-column:1/-1"><span>Cor da capa</span><div class="swatches" id="cores"></div></div>
         </div>
+        <label class="field"><span>O que o aluno vai aprender</span><textarea class="textarea" name="aprender" placeholder="Um resultado por linha. Ex.:&#10;Escrever prompts profissionais&#10;Automatizar a triagem de e-mails"></textarea><small>Aparece na caixa "O que você aprenderá" e ao passar o mouse no card. Até 12 linhas.</small></label>
+        <label class="field"><span>Requisitos</span><textarea class="textarea" name="requisitos" style="min-height:80px" placeholder="Um por linha. Ex.: Nenhum conhecimento prévio."></textarea></label>
       </div>
       <div class="panel" style="display:grid;gap:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2 style="margin:0">Módulos e aulas</h2><span class="muted mono" style="font-size:12.5px" id="resumoGrade"></span></div>
@@ -70,7 +74,8 @@
   if (id) {
     try { curso = (await api('estudio/curso', { id }, 'GET')).curso; } catch (e) { toast(e.message, 'erro'); }
     const f = $('#form');
-    ['titulo', 'resumo', 'descricao', 'categoria', 'nivel', 'preco'].forEach(k => f.elements[k].value = curso[k] ?? '');
+    ['titulo', 'resumo', 'descricao', 'categoria', 'nivel', 'preco', 'preco_original'].forEach(k => f.elements[k].value = curso[k] ?? '');
+    f.elements.aprender.value = (curso.aprender || []).join('\n'); f.elements.requisitos.value = (curso.requisitos || []).join('\n');
     const r = f.querySelector(`[name=cor][value="${curso.cor}"]`); if (r) r.checked = true;
     $('#btnExcluir').hidden = false;
   }
@@ -141,7 +146,7 @@
   });
 
   // ----- pré-visualização
-  const dados = () => { const f = new FormData($('#form')); return { ...curso, titulo: f.get('titulo'), resumo: f.get('resumo'), descricao: f.get('descricao'), categoria: f.get('categoria'), nivel: f.get('nivel'), preco: +f.get('preco') || 0, cor: f.get('cor') }; };
+  const dados = () => { const f = new FormData($('#form')); return { ...curso, titulo: f.get('titulo'), resumo: f.get('resumo'), descricao: f.get('descricao'), categoria: f.get('categoria'), nivel: f.get('nivel'), preco: +f.get('preco') || 0, preco_original: +f.get('preco_original') || 0, cor: f.get('cor'), aprender: f.get('aprender').split('\n').map(x => x.trim()).filter(Boolean), requisitos: f.get('requisitos').split('\n').map(x => x.trim()).filter(Boolean) }; };
   function preview() {
     const d = dados(), aulas = d.modulos.reduce((s, m) => s + m.aulas.length, 0), min = d.modulos.reduce((s, m) => s + m.aulas.reduce((x, a) => x + (+a.min || 0), 0), 0);
     $('#preview').innerHTML = cardCurso({ ...d, slug: d.slug || (d.titulo || 'novo'), titulo: d.titulo || 'Título do curso', resumo: d.resumo || 'O resumo aparece aqui.', aulas, minutos: min, autor: { nome: u.nome, selo: ehParceiro ? 'Parceiro criador' : 'Professor da casa' } });

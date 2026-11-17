@@ -268,6 +268,62 @@ Gere as cenas, a narração e as legendas, e monte tudo no editor no ritmo do ro
     ]},
 ]
 
+EXTRAS = {
+    'Fundamentos de IA sem complicação': (0, [
+        'Explicar com suas palavras o que é IA, aprendizado de máquina e modelo de linguagem',
+        'Entender tokens e janela de contexto, e por que isso muda suas respostas',
+        'Escrever pedidos com a fórmula Papel, Contexto e Resultado',
+        'Reconhecer quando a IA erra e quando não vale a pena usá-la',
+    ], ['Nenhum. Só curiosidade e um navegador.']),
+    'Engenharia de Prompt na prática': (397, [
+        'Montar prompts profissionais em seis partes, como um briefing',
+        'Usar exemplos (few-shot) para ensinar o padrão que você quer',
+        'Pedir raciocínio passo a passo em problemas com várias etapas',
+        'Encadear prompts para tarefas grandes e achar onde algo deu errado',
+        'Criar um gabarito de testes para comparar versões de um prompt',
+    ], ['Ter feito o curso de Fundamentos ou já usar alguma IA no dia a dia.']),
+    'Automações com IA': (597, [
+        'Identificar o que vale automatizar com o teste dos três R',
+        'Desenhar fluxos com gatilho, ações e dados',
+        'Montar a triagem automática de e-mails com rascunho de resposta',
+        'Criar um atendimento no WhatsApp com base nos seus documentos',
+    ], ['Saber usar planilhas e e-mail.', 'Uma conta gratuita em uma ferramenta de automação (mostramos como criar).']),
+    'Imagens com IA para marcas': (297, [
+        'Descrever imagens como um diretor de fotografia',
+        'Transformar o manual da marca em um guia que a IA consegue seguir',
+        'Produzir peças para redes sociais do rascunho à arte final',
+    ], ['Nenhum conhecimento de design é necessário.']),
+    'Programando com assistentes de IA': (697, [
+        'Pedir código que funciona, com contexto e testes',
+        'Revisar com critério o que a IA escreveu',
+        'Trabalhar com agentes de código no terminal',
+        'Construir e publicar um site do zero em uma tarde',
+    ], ['Noções básicas de programação em qualquer linguagem.']),
+    'IA para pequenos negócios': (197, [
+        'Mapear onde a IA economiza horas na sua semana',
+        'Produzir um mês de conteúdo para redes em uma hora',
+        'Responder clientes e montar propostas mais rápido',
+    ], ['Ter um negócio ou um projeto em andamento.']),
+    'Agentes de IA: do zero ao primeiro agente': (797, [
+        'Entender a diferença entre um chatbot e um agente',
+        'Projetar ferramentas com permissões e limites claros',
+        'Programar o laço do agente usando a API',
+        'Medir taxa de sucesso, custo e tempo para melhorar o agente',
+    ], ['Saber programar em Python ou JavaScript.', 'Ter feito Engenharia de Prompt ou ter experiência equivalente.']),
+}
+
+COMENTARIOS = {
+    5: ['Direto ao ponto, sem enrolação. Apliquei no trabalho na mesma semana.',
+        'Melhor curso de IA que já fiz. Os exercícios no fim de cada aula fazem toda a diferença.',
+        'Didática excelente. Finalmente entendi o que estava fazendo.',
+        'Aulas curtas e muito bem explicadas. Recomendo para a equipe toda.',
+        'Saí com coisas funcionando de verdade, não só teoria.'],
+    4: ['Muito bom. Senti falta de mais exemplos na última parte, mas valeu cada minuto.',
+        'Conteúdo ótimo e atualizado. Algumas aulas poderiam ser um pouco mais longas.',
+        'Gostei bastante, principalmente dos modelos prontos para copiar.'],
+    3: ['Bom para começar, mas eu esperava mais profundidade.'],
+}
+
 CURSOS = [
     ('prof1', 'Fundamentos de IA sem complicação', 'Entenda o que a IA faz, onde ela erra e como usar no seu dia a dia, sem jargão.',
      'Fundamentos', 'Iniciante', 0, 'lima', FUND,
@@ -324,6 +380,9 @@ def popular(caminho, hash_senha):
                         (ids[autor], slug, titulo, resumo, desc, cat, nivel, preco, cor, 'publicado',
                          json.dumps(mods, ensure_ascii=False), agora - (40 - i) * DIA, agora - (40 - i) * DIA))
         cursos[titulo] = (cur.lastrowid, preco, mods, ids[autor])
+        orig, aprender, req = EXTRAS[titulo]
+        c.execute('UPDATE cursos SET preco_original=?, aprender=?, requisitos=? WHERE id=?',
+                  (orig, json.dumps(aprender, ensure_ascii=False), json.dumps(req, ensure_ascii=False), cur.lastrowid))
 
     # curso de parceiro aguardando curadoria
     c.execute('''INSERT INTO cursos (autor_id,slug,titulo,resumo,descricao,categoria,nivel,preco,cor,status,modulos,criado,atualizado)
@@ -337,9 +396,17 @@ def popular(caminho, hash_senha):
     nomes = ['Ana Souza', 'Bruno Lima', 'Carla Mendes', 'Daniel Rocha', 'Elisa Prado', 'Fábio Teixeira', 'Gabriela Reis',
              'Henrique Alves', 'Isabela Martins', 'João Pedro Silva', 'Karen Oliveira', 'Lucas Fernandes', 'Mariana Ribeiro',
              'Natália Gomes', 'Otávio Barros', 'Paula Castro', 'Renato Dias', 'Sofia Almeida']
+    primeiros = ['Amanda', 'Beatriz', 'Caio', 'Diana', 'Eduardo', 'Fernanda', 'Gustavo', 'Helena', 'Igor', 'Júlia', 'Leonardo',
+                 'Larissa', 'Matheus', 'Nicole', 'Pedro', 'Rafaela', 'Samuel', 'Tatiane', 'Vinícius', 'Yasmin', 'Thiago', 'Camila']
+    sobrenomes = ['Araújo', 'Batista', 'Cardoso', 'Duarte', 'Freitas', 'Monteiro', 'Pereira', 'Queiroz', 'Rezende', 'Vieira', 'Lopes', 'Moura']
+    while len(nomes) < 90:
+        n = rnd.choice(primeiros) + ' ' + rnd.choice(sobrenomes)
+        if n not in nomes:
+            nomes.append(n)
     alunos = []
     for n in nomes:
-        sal, h = hash_senha(secrets.token_hex(8))
+        # alunos fictícios não fazem login: sal e hash aleatórios (não existe senha que bata)
+        sal, h = secrets.token_hex(16), secrets.token_hex(32)
         email = n.lower().replace(' ', '.').encode('ascii', 'ignore').decode() + '@exemplo.test'
         cur = c.execute('INSERT INTO usuarios (nome,email,papel,sal,hash,criado) VALUES (?,?,?,?,?,?)',
                         (n, email, 'aluno', sal, h, agora - rnd.randint(5, 50) * DIA))
@@ -356,6 +423,13 @@ def popular(caminho, hash_senha):
             aulas = [a['id'] for m in mods for a in m['aulas']]
             for a in aulas[:rnd.randint(0, len(aulas))]:
                 c.execute('INSERT INTO progresso VALUES (?,?,?,?)', (uid, cid, a, quando + rnd.randint(0, 5) * DIA))
+
+    # avaliações dos alunos de exemplo
+    for uid, cid in c.execute('SELECT usuario_id, curso_id FROM matriculas').fetchall():
+        if rnd.random() < .8:
+            nota = rnd.choices([5, 4, 3], weights=[64, 30, 6])[0]
+            texto = rnd.choice(COMENTARIOS[nota]) if rnd.random() < .75 else ''
+            c.execute('INSERT INTO avaliacoes VALUES (?,?,?,?,?)', (uid, cid, nota, texto, agora - rnd.randint(0, 20) * DIA))
 
     # a aluna de demonstração já começou dois cursos
     for titulo, feitas in (('Fundamentos de IA sem complicação', 3), ('Engenharia de Prompt na prática', 1)):

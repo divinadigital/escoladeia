@@ -105,21 +105,94 @@
     return `<svg viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><radialGradient id="${id}" cx="75%" cy="20%" r="80%"><stop offset="0" stop-color="${a}" stop-opacity=".35"/><stop offset="1" stop-color="${bg}" stop-opacity="0"/></radialGradient></defs><rect width="400" height="250" fill="${bg}"/><rect width="400" height="250" fill="url(#${id})"/>${shapes}<text x="20" y="232" font-family="Geist Mono, monospace" font-size="11" letter-spacing="2" fill="${b}" fill-opacity=".7">${mono} · ESCOLA DE IA</text></svg>`;
   }
 
-  /* ---------- card de curso ---------- */
+  /* ---------- card de curso (inspirado nos cards da Udemy) ---------- */
   const horas = m => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, '0') : ''}` : `${m} min`;
+  const nota1 = n => (+n || 0).toFixed(1).replace('.', ',');
+  const estrelas = (n, cls = '') => `<span class="stars ${cls}" style="--p:${Math.max(0, Math.min(5, +n || 0)) / 5 * 100}%" aria-label="Nota ${nota1(n)} de 5">★★★★★<i aria-hidden="true">★★★★★</i></span>`;
+  const SELO_CLS = { 'Mais vendido': 'selo--vendido', 'Mais bem avaliado': 'selo--avaliado', 'Novo': 'selo--novo' };
+  const seloHtml = c => c.selo ? `<span class="selo ${SELO_CLS[c.selo] || ''}">${esc(c.selo)}</span>` : '';
+  const precoHtml = c => c.preco > 0
+    ? `<span class="preco"><b>${brl(c.preco)}</b>${c.preco_original > c.preco ? `<s>${brl(c.preco_original)}</s>` : ''}</span>`
+    : '<span class="preco"><b>Grátis</b></span>';
+  const notaHtml = c => c.avaliacoes ? `<span class="nota"><b>${nota1(c.nota)}</b>${estrelas(c.nota)}<span class="muted">(${c.avaliacoes.toLocaleString('pt-BR')})</span></span>` : '<span class="nota muted">Ainda sem avaliações</span>';
+  const registro = new Map();
   function cardCurso(c, i = 0, extra = '') {
     if (typeof extra !== 'string') extra = ''; // quando usado direto em .map()
-    return `<article class="ccard spot fade-in" style="--i:${i}">
-      <div class="ccard__cover">${capa(c.slug, c.cor, c.titulo)}<div class="ccard__tags"><span class="tag">${esc(c.categoria)}</span><span class="tag">${esc(c.nivel)}</span></div></div>
+    registro.set(c.id, c);
+    return `<article class="ccard spot fade-in" style="--i:${i}" data-cid="${c.id}">
+      <div class="ccard__cover">${capa(c.slug, c.cor, c.titulo)}</div>
       <div class="ccard__body">
-        <div class="ccard__by">${avatar(c.autor.nome, 22)} ${esc(c.autor.nome)} · <span>${esc(c.autor.selo)}</span></div>
         <h3><a class="ccard__link" href="curso.html?c=${encodeURIComponent(c.slug)}">${esc(c.titulo)}</a></h3>
-        <p>${esc(c.resumo)}</p>
+        <div class="ccard__by">${esc(c.autor.nome)}</div>
+        ${notaHtml(c)}
+        <div class="ccard__meta">${horas(c.minutos)} no total · ${c.aulas} aulas · ${esc(c.nivel)}</div>
         ${extra}
-        <div class="ccard__foot"><span>${c.aulas} aulas · ${horas(c.minutos)}</span><span class="ccard__price">${brl(c.preco)}</span></div>
+        <div class="ccard__foot">${precoHtml(c)}${seloHtml(c)}</div>
       </div></article>`;
   }
-  const skeletonCards = n => Array.from({ length: n }, () => `<div class="ccard ccard--sk"><div class="ccard__cover sk" style="border-radius:0"></div><div class="ccard__body"><div class="sk" style="height:14px;width:50%"></div><div class="sk" style="height:22px;width:85%"></div><div class="sk" style="height:14px;width:95%"></div><div class="sk" style="height:14px;width:70%"></div></div></div>`).join('');
+  const skeletonCards = n => Array.from({ length: n }, () => `<div class="ccard ccard--sk"><div class="ccard__cover sk" style="border-radius:0"></div><div class="ccard__body"><div class="sk" style="height:20px;width:90%"></div><div class="sk" style="height:14px;width:45%"></div><div class="sk" style="height:14px;width:60%"></div><div class="sk" style="height:20px;width:35%;margin-top:8px"></div></div></div>`).join('');
+
+  /* ---------- carrossel com setas (como os trilhos de cursos da Udemy) ---------- */
+  function trilho(el, html) {
+    el.classList.add('trilho');
+    el.innerHTML = `<button class="trilho__seta" type="button" data-dir="-1" aria-label="Anteriores">‹</button><div class="trilho__lista">${html}</div><button class="trilho__seta" type="button" data-dir="1" aria-label="Próximos">›</button>`;
+    const l = $('.trilho__lista', el);
+    const sync = () => { $('[data-dir="-1"]', el).disabled = l.scrollLeft < 8; $('[data-dir="1"]', el).disabled = l.scrollLeft + l.clientWidth > l.scrollWidth - 8; };
+    $$('.trilho__seta', el).forEach(b => b.addEventListener('click', () => l.scrollBy({ left: +b.dataset.dir * l.clientWidth * .9 })));
+    l.addEventListener('scroll', sync, { passive: true }); requestAnimationFrame(sync); addEventListener('resize', sync);
+  }
+
+  /* ---------- carrinho (fica no navegador; a compra vira matrícula) ---------- */
+  const carrinho = {
+    ler() { try { return JSON.parse(localStorage.getItem('eia-carrinho')) || []; } catch (e) { return []; } },
+    gravar(l) { try { localStorage.setItem('eia-carrinho', JSON.stringify(l)); } catch (e) {} document.dispatchEvent(new Event('carrinho')); },
+    tem(id) { return this.ler().some(x => x.id === id); },
+    add(c) {
+      if (this.tem(c.id)) return false;
+      const l = this.ler(); l.push({ id: c.id, slug: c.slug, titulo: c.titulo, cor: c.cor, preco: c.preco, preco_original: c.preco_original || 0, autor: c.autor.nome, nota: c.nota, avaliacoes: c.avaliacoes, aulas: c.aulas, minutos: c.minutos, nivel: c.nivel });
+      this.gravar(l); return true;
+    },
+    rm(id) { this.gravar(this.ler().filter(x => x.id !== id)); },
+    limpar() { this.gravar([]); },
+  };
+
+  /* ---------- popover do card: "O que você aprenderá" (hover, como na Udemy) ---------- */
+  if (fine) {
+    let pop, timer, alvo;
+    const fechar = () => { clearTimeout(timer); pop?.classList.remove('is-on'); alvo = null; };
+    const abrir = card => {
+      const c = registro.get(+card.dataset.cid); if (!c) return;
+      if (!pop) {
+        pop = document.createElement('div'); pop.className = 'pop'; pop.setAttribute('role', 'dialog'); document.body.appendChild(pop);
+        pop.addEventListener('pointerenter', () => clearTimeout(timer));
+        pop.addEventListener('pointerleave', () => { timer = setTimeout(fechar, 200); });
+      }
+      const noCar = carrinho.tem(c.id);
+      pop.innerHTML = `<h4>${esc(c.titulo)}</h4>${c.selo ? `<div style="margin:8px 0 2px">${seloHtml(c)}</div>` : ''}
+        <p class="pop__meta">Atualizado em <b>${new Date((c.atualizado || 0) * 1000).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</b></p>
+        <p class="pop__meta">${horas(c.minutos)} no total · ${esc(c.nivel)} · ${c.alunos} alunos</p>
+        <p>${esc(c.resumo)}</p>
+        ${c.aprender?.length ? `<ul class="checks">${c.aprender.map(a => `<li>${esc(a)}</li>`).join('')}</ul>` : ''}
+        ${c.preco > 0 ? `<button class="btn ${noCar ? 'btn--ghost' : 'btn--primary'}" type="button" data-pop-car style="width:100%">${noCar ? 'Ir para o carrinho' : 'Adicionar ao carrinho'}</button>` : `<a class="btn btn--primary" href="curso.html?c=${c.slug}" style="width:100%">Começar grátis</a>`}`;
+      $('[data-pop-car]', pop)?.addEventListener('click', e => {
+        if (carrinho.tem(c.id)) { location.href = 'carrinho.html'; return; }
+        carrinho.add(c); toast('Adicionado ao carrinho.'); e.currentTarget.textContent = 'Ir para o carrinho'; e.currentTarget.className = 'btn btn--ghost';
+      });
+      const r = card.getBoundingClientRect(), w = 340;
+      const direita = r.right + w + 24 < innerWidth;
+      pop.style.left = (direita ? r.right + 14 : Math.max(12, r.left - w - 14)) + scrollX + 'px';
+      pop.style.top = Math.max(scrollY + 80, r.top + scrollY + r.height / 2 - 170) + 'px';
+      pop.dataset.lado = direita ? 'd' : 'e';
+      pop.classList.add('is-on');
+    };
+    document.addEventListener('pointerover', e => {
+      const card = e.target.closest?.('.ccard[data-cid]');
+      if (!card || card.closest('.editor__preview')) { if (alvo && !e.target.closest?.('.pop')) { clearTimeout(timer); timer = setTimeout(fechar, 200); } return; }
+      if (card === alvo) { clearTimeout(timer); return; }
+      alvo = card; clearTimeout(timer); timer = setTimeout(() => abrir(card), 380);
+    });
+    addEventListener('scroll', () => { if (pop?.classList.contains('is-on')) fechar(); }, { passive: true });
+  }
 
   /* ---------- markdown simples e seguro (para o conteúdo das aulas) ---------- */
   function md(src) {
@@ -196,36 +269,62 @@
     moon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
     menu: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>',
   };
+  const CATS = [
+    ['Fundamentos', 'O que é IA e como usar no dia a dia'], ['Prompts', 'Pedidos que geram entregas profissionais'],
+    ['Automação', 'Fluxos que trabalham por você'], ['Programação', 'Código e agentes com IA'],
+    ['Criação', 'Imagem, vídeo e design'], ['Negócios', 'IA para vender e atender melhor'],
+  ];
+  const I_BUSCA = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+  const I_CARRINHO = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6.2"/><circle cx="10" cy="20.5" r="1.2"/><circle cx="17" cy="20.5" r="1.2"/></svg>';
   function header() {
     const el = $('#topo'); if (!el) return;
-    const pag = location.pathname.split('/').pop() || 'index.html';
-    const links = [['cursos.html', 'Cursos'], ['index.html#perfis', 'Para quem'], ['index.html#parceiros', 'Seja parceiro'], ['index.html#duvidas', 'Dúvidas']];
-    el.innerHTML = `<header class="nav" id="nav"><div class="wrap nav__in">
+    let promoFechada = false; try { promoFechada = localStorage.getItem('eia-promo') === '1'; } catch (e) {}
+    const busca = (cls, id) => `<form class="busca ${cls}" action="cursos.html" role="search"><label class="sr" for="${id}">Buscar cursos</label>${I_BUSCA}<input id="${id}" name="q" type="search" placeholder="Pesquisar por qualquer coisa" autocomplete="off" value="${esc(qs('q') || '')}"></form>`;
+    el.innerHTML = `${promoFechada ? '' : `<div class="promo" id="promo"><span><b>Semana da IA:</b> cursos com até 50% de desconto. <a href="cursos.html">Ver os cursos</a></span><button type="button" aria-label="Fechar aviso" id="promoX">×</button></div>`}
+      <header class="nav" id="nav"><div class="wrap nav__in">
       <a href="index.html" class="logo" aria-label="Escola de IA, início">${LOGO}<span class="logo__word">Escola de <em>IA</em></span></a>
-      <nav aria-label="Principal"><ul class="nav__links">${links.map(([h, t]) => `<li><a href="${h}"${pag === h ? ' aria-current="page"' : ''}>${t}</a></li>`).join('')}<li class="nav__pill" aria-hidden="true"></li></ul></nav>
+      <div class="menu explorar hide-m"><button class="btn btn--quiet btn--sm" type="button" aria-haspopup="true">Explorar</button>
+        <div class="menu__pop" style="left:0;right:auto;min-width:300px" role="menu">${CATS.map(([c, d]) => `<a href="cursos.html?cat=${encodeURIComponent(c)}" role="menuitem"><span><b style="font-weight:550;display:block">${c}</b><span class="muted" style="font-size:12.5px">${d}</span></span></a>`).join('')}<hr><a href="cursos.html" role="menuitem">Todos os cursos →</a></div></div>
+      ${busca('hide-m', 'buscaTopo')}
       <div class="nav__actions">
-        <button class="icon-btn theme-toggle" type="button" aria-label="Alternar tema claro ou escuro"><span class="i-sun">${I.sun}</span><span class="i-moon">${I.moon}</span></button>
-        <span id="navUser" class="nav__user"><a class="btn btn--ghost btn--sm hide-m" href="entrar.html">Entrar</a><a class="btn btn--primary btn--sm hide-m" href="entrar.html?perfil=aluno&modo=cadastro">Começar grátis</a></span>
+        <a class="btn btn--quiet btn--sm hide-l" href="index.html#parceiros">Seja parceiro</a>
+        <a class="btn btn--quiet btn--sm hide-l" href="entrar.html?perfil=professor">Ensine aqui</a>
+        <a class="icon-btn carrinho-btn" href="carrinho.html" aria-label="Carrinho">${I_CARRINHO}<span class="carrinho-n" id="carN" hidden>0</span></a>
+        <button class="icon-btn theme-toggle hide-m" type="button" aria-label="Alternar tema claro ou escuro"><span class="i-sun">${I.sun}</span><span class="i-moon">${I.moon}</span></button>
+        <span id="navUser" class="nav__user"><a class="btn btn--ghost btn--sm hide-m" href="entrar.html">Entrar</a><a class="btn btn--primary btn--sm hide-m" href="entrar.html?perfil=aluno&modo=cadastro">Cadastre-se</a></span>
         <button class="icon-btn nav__burger" type="button" aria-label="Abrir menu" aria-expanded="false">${I.menu}</button>
       </div></div></header>
       <div class="drawer" id="drawer"><div class="drawer__bg" data-close></div><div class="drawer__panel" role="dialog" aria-label="Menu">
-        ${links.map(([h, t]) => `<a href="${h}">${t}</a>`).join('')}<a href="entrar.html">Entrar</a>
-        <a class="btn btn--primary" style="margin-top:18px;font-size:15px;border:0" href="entrar.html?perfil=aluno&modo=cadastro">Começar grátis</a></div></div>`;
+        ${busca('busca--drawer', 'buscaGaveta')}
+        <span class="eyebrow" style="margin:14px 0 4px">Explorar</span>
+        ${CATS.map(([c]) => `<a href="cursos.html?cat=${encodeURIComponent(c)}">${c}</a>`).join('')}
+        <a href="index.html#parceiros">Seja parceiro</a><a href="carrinho.html">Carrinho</a>
+        <button class="btn btn--ghost theme-toggle" type="button" style="margin-top:14px"><span class="i-sun">${I.sun}</span><span class="i-moon">${I.moon}</span> Alternar tema</button>
+        <a href="entrar.html" data-entrar>Entrar</a>
+        <a class="btn btn--primary" style="margin-top:12px;font-size:15px;border:0" href="entrar.html?perfil=aluno&modo=cadastro" data-cad>Cadastre-se</a></div></div>`;
+    // promoção
+    $('#promoX')?.addEventListener('click', () => { $('#promo').remove(); try { localStorage.setItem('eia-promo', '1'); } catch (e) {} });
     // tema
     const syncIcon = () => { const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches); $$('.i-sun').forEach(i => i.hidden = !dark); $$('.i-moon').forEach(i => i.hidden = dark); };
     syncIcon();
-    $('.theme-toggle').addEventListener('click', () => {
+    $$('.theme-toggle').forEach(b => b.addEventListener('click', () => {
       const d = document.documentElement;
       const cur = d.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       const apply = () => { d.dataset.theme = cur === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('eia-tema', d.dataset.theme); } catch (e) {} syncIcon(); };
       if (document.startViewTransition && !reduce) document.startViewTransition(apply); else apply();
-    });
+    }));
     // nav com fundo ao rolar
     const nav = $('#nav'); const onS = () => nav.classList.toggle('is-scrolled', scrollY > 8); onS(); addEventListener('scroll', onS, { passive: true });
-    // pílula que segue o mouse (transitions.dev: tabs sliding)
-    const pill = $('.nav__pill'), ul = $('.nav__links');
-    $$('.nav__links a').forEach(a => a.addEventListener('pointerenter', () => { pill.style.opacity = 1; pill.style.width = a.offsetWidth + 'px'; pill.style.transform = `translateX(${a.offsetLeft}px)`; }));
-    ul.addEventListener('pointerleave', () => pill.style.opacity = 0);
+    // menus suspensos (Explorar e usuário)
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('.menu > button');
+      $$('.menu.is-open').forEach(m => { if (!btn || m !== btn.parentElement) m.classList.remove('is-open'); });
+      if (btn) btn.parentElement.classList.toggle('is-open');
+    });
+    // contador do carrinho
+    const syncCar = () => { const n = carrinho.ler().length, b = $('#carN'); b.textContent = n; b.hidden = !n; b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse'); };
+    syncCar(); document.addEventListener('carrinho', syncCar);
+    addEventListener('storage', e => { if (e.key === 'eia-carrinho') syncCar(); });
     // gaveta mobile
     const dr = $('#drawer'), bur = $('.nav__burger');
     bur.addEventListener('click', () => { dr.classList.add('is-open'); bur.setAttribute('aria-expanded', 'true'); });
@@ -235,12 +334,9 @@
       if (!u) return;
       const box = $('#navUser');
       box.innerHTML = `<div class="menu"><button class="user-chip" type="button" aria-haspopup="true">${avatar(u.nome)}<span class="hide-m">${esc(u.nome.split(' ')[0])}</span><span class="role-tag">${PAPEL_NOME[u.papel]}</span></button>
-        <div class="menu__pop" role="menu"><a href="${PAINEL[u.papel]}" role="menuitem">Meu painel</a>${u.papel === 'aluno' ? '<a href="cursos.html" role="menuitem">Explorar cursos</a>' : ''}${u.papel === 'professor' || u.papel === 'parceiro' ? '<a href="editor.html" role="menuitem">Criar curso</a>' : ''}<hr><button type="button" data-sair role="menuitem">Sair</button></div></div>`;
-      const menu = $('.menu', box);
-      $('.user-chip', box).addEventListener('click', e => { e.stopPropagation(); menu.classList.toggle('is-open'); });
-      document.addEventListener('click', () => menu.classList.remove('is-open'));
+        <div class="menu__pop" role="menu"><a href="${PAINEL[u.papel]}" role="menuitem">Meu painel</a>${u.papel === 'aluno' ? '<a href="aluno.html" role="menuitem">Meu aprendizado</a><a href="carrinho.html" role="menuitem">Meu carrinho</a>' : ''}${u.papel === 'professor' || u.papel === 'parceiro' ? '<a href="editor.html" role="menuitem">Criar curso</a>' : ''}<hr><button type="button" data-sair role="menuitem">Sair</button></div></div>`;
       $('[data-sair]', box).addEventListener('click', sair);
-      const dl = $$('#drawer .drawer__panel a'); dl[dl.length - 2].textContent = 'Meu painel'; dl[dl.length - 2].href = PAINEL[u.papel]; dl[dl.length - 1].remove();
+      const ent = $('#drawer [data-entrar]'); ent.textContent = 'Meu painel'; ent.href = PAINEL[u.papel]; $('#drawer [data-cad]').remove();
     });
   }
   function footer() {
@@ -385,5 +481,5 @@
   document.addEventListener('DOMContentLoaded', () => efeitos());
   if (document.readyState !== 'loading') efeitos();
 
-  window.EIA = { get modoLocal() { return modoLocal; }, $, $$, api,eu, exigir, sair, esc, brl, moeda, qs, avatar, capa, cardCurso, skeletonCards, md, toast, confete, efeitos, abas, rede, modal, horas, dataBR, diaLocal, refAtual, PAINEL, PAPEL_NOME, reduce };
+  window.EIA = { get modoLocal() { return modoLocal; }, registro, trilho, carrinho, estrelas, nota1, seloHtml, precoHtml, notaHtml, CATS, $, $$, api,eu, exigir, sair, esc, brl, moeda, qs, avatar, capa, cardCurso, skeletonCards, md, toast, confete, efeitos, abas, rede, modal, horas, dataBR, diaLocal, refAtual, PAINEL, PAPEL_NOME, reduce };
 })();

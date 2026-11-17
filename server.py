@@ -51,7 +51,8 @@ def criar_banco():
             slug TEXT UNIQUE NOT NULL, titulo TEXT NOT NULL, resumo TEXT DEFAULT '',
             descricao TEXT DEFAULT '', categoria TEXT DEFAULT 'Fundamentos', nivel TEXT DEFAULT 'Iniciante',
             preco REAL DEFAULT 0, cor TEXT DEFAULT 'lima', status TEXT DEFAULT 'rascunho',
-            motivo TEXT DEFAULT '', modulos TEXT DEFAULT '[]', criado INTEGER NOT NULL, atualizado INTEGER NOT NULL);
+            motivo TEXT DEFAULT '', modulos TEXT DEFAULT '[]', criado INTEGER NOT NULL, atualizado INTEGER NOT NULL,
+            aprender TEXT DEFAULT '[]', requisitos TEXT DEFAULT '[]', preco_original REAL DEFAULT 0);
         CREATE TABLE IF NOT EXISTS matriculas (
             id INTEGER PRIMARY KEY, usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
             curso_id INTEGER NOT NULL REFERENCES cursos(id) ON DELETE CASCADE,
@@ -60,7 +61,16 @@ def criar_banco():
             usuario_id INTEGER NOT NULL, curso_id INTEGER NOT NULL, aula_id TEXT NOT NULL,
             criado INTEGER NOT NULL, PRIMARY KEY(usuario_id, curso_id, aula_id));
         CREATE TABLE IF NOT EXISTS cliques (ref TEXT NOT NULL, curso_id INTEGER, criado INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS avaliacoes (
+            usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+            curso_id INTEGER NOT NULL REFERENCES cursos(id) ON DELETE CASCADE,
+            nota INTEGER NOT NULL, texto TEXT DEFAULT '', criado INTEGER NOT NULL, PRIMARY KEY(usuario_id, curso_id));
         ''')
+        # bancos criados antes destas colunas existirem
+        cols = {r[1] for r in c.execute('PRAGMA table_info(cursos)')}
+        for col, tipo in (('aprender', "TEXT DEFAULT '[]'"), ('requisitos', "TEXT DEFAULT '[]'"), ('preco_original', 'REAL DEFAULT 0')):
+            if col not in cols:
+                c.execute('ALTER TABLE cursos ADD COLUMN %s %s' % (col, tipo))
     if novo:
         import seed
         seed.popular(DB, hash_senha)
@@ -78,6 +88,19 @@ def slugify(t):
     return re.sub(r'[^a-z0-9]+', '-', t.lower()).strip('-')[:60] or 'curso'
 
 
+def lista(v):
+    if isinstance(v, str):
+        v = v.split('\n')
+    return [str(x).strip()[:200] for x in (v or []) if str(x).strip()][:12]
+
+
+def num(v):
+    try:
+        return float(v or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def contar_aulas(modulos):
     return sum(len(m.get('aulas', [])) for m in modulos)
 
@@ -86,19 +109,46 @@ def duracao_total(modulos):
     return sum(int(a.get('min') or 0) for m in modulos for a in m.get('aulas', []))
 
 
+def selo(alunos, nota, n_aval, criado):
+    if alunos >= 30:
+        return 'Mais vendido'
+    if n_aval >= 4 and nota >= 4.7:
+        return 'Mais bem avaliado'
+    if time.time() - criado < 21 * 86400:
+        return 'Novo'
+    return ''
+
+
 def curso_publico(row, c, detalhado=False, liberado=False):
     mods = json.loads(row['modulos'] or '[]')
     autor = c.execute('SELECT id, nome, bio, papel FROM usuarios WHERE id=?', (row['autor_id'],)).fetchone()
     alunos = c.execute('SELECT COUNT(*) FROM matriculas WHERE curso_id=?', (row['id'],)).fetchone()[0]
+    media, n_aval = c.execute('SELECT COALESCE(AVG(nota),0), COUNT(*) FROM avaliacoes WHERE curso_id=?', (row['id'],)).fetchone()
     d = {
         'id': row['id'], 'slug': row['slug'], 'titulo': row['titulo'], 'resumo': row['resumo'],
         'categoria': row['categoria'], 'nivel': row['nivel'], 'preco': row['preco'], 'cor': row['cor'],
+        'preco_original': row['preco_original'] or 0, 'nota': round(media, 1), 'avaliacoes': n_aval,
+        'selo': selo(alunos, round(media, 1), n_aval, row['criado']), 'aprender': json.loads(row['aprender'] or '[]')[:3],
         'status': row['status'], 'aulas': contar_aulas(mods), 'minutos': duracao_total(mods), 'alunos': alunos,
+        'atualizado': row['atualizado'],
         'autor': {'id': autor['id'], 'nome': autor['nome'], 'bio': autor['bio'],
                   'selo': 'Professor da casa' if autor['papel'] == 'professor' else 'Parceiro criador'},
     }
     if detalhado:
         d['descricao'] = row['descricao']
+        d['aprender'] = json.loads(row['aprender'] or '[]')
+        d['requisitos'] = json.loads(row['requisitos'] or '[]')
+        ids = [x[0] for x in c.execute("SELECT id FROM cursos WHERE autor_id=? AND status='publicado'", (autor['id'],))]
+        q = ','.join('?' * len(ids)) or 'NULL'
+        a_media, a_n = c.execute('SELECT COALESCE(AVG(nota),0), COUNT(*) FROM avaliacoes WHERE curso_id IN (%s)' % q, ids).fetchone()
+        d['autor'].update({'cursos': len(ids), 'nota': round(a_media, 1), 'avaliacoes': a_n,
+                           'alunos': c.execute('SELECT COUNT(DISTINCT usuario_id) FROM matriculas WHERE curso_id IN (%s)' % q, ids).fetchone()[0]})
+        d['distribuicao'] = {str(k): 0 for k in range(1, 6)}
+        for nota, n in c.execute('SELECT nota, COUNT(*) FROM avaliacoes WHERE curso_id=? GROUP BY nota', (row['id'],)):
+            d['distribuicao'][str(nota)] = n
+        d['comentarios'] = [{'nome': x['nome'], 'nota': x['nota'], 'texto': x['texto'], 'criado': x['criado']} for x in c.execute(
+            '''SELECT u.nome, a.nota, a.texto, a.criado FROM avaliacoes a JOIN usuarios u ON u.id=a.usuario_id
+               WHERE a.curso_id=? AND a.texto<>'' ORDER BY a.criado DESC LIMIT 12''', (row['id'],))]
         d['modulos'] = [{
             'titulo': m.get('titulo', ''),
             'aulas': [{
@@ -304,7 +354,28 @@ class Handler(SimpleHTTPRequestHandler):
         feitas = []
         if u:
             feitas = [x[0] for x in c.execute('SELECT aula_id FROM progresso WHERE usuario_id=? AND curso_id=?', (u['id'], r['id']))]
-        return self.json({'curso': curso, 'matriculado': matriculado, 'feitas': feitas})
+        minha = None
+        if u:
+            x = c.execute('SELECT nota, texto FROM avaliacoes WHERE usuario_id=? AND curso_id=?', (u['id'], r['id'])).fetchone()
+            minha = dict(x) if x else None
+        return self.json({'curso': curso, 'matriculado': matriculado, 'feitas': feitas, 'minha_avaliacao': minha})
+
+    def r_avaliar(self, c, d, m):
+        u = self.exigir(c, 'aluno')
+        if not u:
+            return
+        r = c.execute('SELECT id FROM cursos WHERE id=?', (d.get('curso_id'),)).fetchone()
+        if not r or not c.execute('SELECT 1 FROM matriculas WHERE usuario_id=? AND curso_id=?', (u['id'], r['id'])).fetchone():
+            return self.erro('Só quem está matriculado pode avaliar o curso.', 403)
+        try:
+            nota = int(d.get('nota'))
+        except (TypeError, ValueError):
+            nota = 0
+        if not 1 <= nota <= 5:
+            return self.erro('Escolha de 1 a 5 estrelas.')
+        c.execute('INSERT OR REPLACE INTO avaliacoes VALUES (?,?,?,?,?)',
+                  (u['id'], r['id'], nota, (d.get('texto') or '').strip()[:1200], int(time.time())))
+        return self.json({'ok': True})
 
     def r_clique(self, c, d, m):
         ref = (d.get('ref') or '')[:20]
@@ -316,14 +387,20 @@ class Handler(SimpleHTTPRequestHandler):
         u = self.exigir(c, 'aluno')
         if not u:
             return
-        r = c.execute("SELECT * FROM cursos WHERE id=? AND status='publicado'", (d.get('curso_id'),)).fetchone()
-        if not r:
-            return self.erro('Curso indisponível.', 404)
+        ids = d.get('curso_ids') or [d.get('curso_id')]
         ref = c.execute("SELECT id FROM usuarios WHERE ref=? AND papel='parceiro'", ((d.get('ref') or '')[:20],)).fetchone()
-        ref_id = ref['id'] if ref and ref['id'] != r['autor_id'] else None
-        c.execute('INSERT OR IGNORE INTO matriculas (usuario_id,curso_id,ref_id,valor,criado) VALUES (?,?,?,?,?)',
-                  (u['id'], r['id'], ref_id, r['preco'], int(time.time())))
-        return self.json({'ok': True, 'slug': r['slug']})
+        feitos = []
+        for cid in ids[:50]:
+            r = c.execute("SELECT * FROM cursos WHERE id=? AND status='publicado'", (cid,)).fetchone()
+            if not r:
+                continue
+            ref_id = ref['id'] if ref and ref['id'] != r['autor_id'] else None
+            c.execute('INSERT OR IGNORE INTO matriculas (usuario_id,curso_id,ref_id,valor,criado) VALUES (?,?,?,?,?)',
+                      (u['id'], r['id'], ref_id, r['preco'], int(time.time())))
+            feitos.append(r['slug'])
+        if not feitos:
+            return self.erro('Curso indisponível.', 404)
+        return self.json({'ok': True, 'slug': feitos[0], 'slugs': feitos})
 
     def r_aula(self, c, d, m):
         u = self.usuario(c)
@@ -405,6 +482,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.erro('Curso não encontrado.', 404)
             x = dict(r)
             x['modulos'] = json.loads(r['modulos'])
+            x['aprender'] = json.loads(r['aprender'] or '[]')
+            x['requisitos'] = json.loads(r['requisitos'] or '[]')
             return self.json({'curso': x})
         titulo = (d.get('titulo') or '').strip()[:120]
         if len(titulo) < 4:
@@ -427,7 +506,10 @@ class Handler(SimpleHTTPRequestHandler):
             preco = 0.0
         campos = dict(titulo=titulo, resumo=(d.get('resumo') or '')[:240], descricao=(d.get('descricao') or '')[:6000],
                       categoria=(d.get('categoria') or 'Fundamentos')[:40], nivel=(d.get('nivel') or 'Iniciante')[:20],
-                      preco=preco, cor=(d.get('cor') or 'lima')[:12], modulos=json.dumps(mods, ensure_ascii=False))
+                      preco=preco, cor=(d.get('cor') or 'lima')[:12], modulos=json.dumps(mods, ensure_ascii=False),
+                      aprender=json.dumps(lista(d.get('aprender')), ensure_ascii=False),
+                      requisitos=json.dumps(lista(d.get('requisitos')), ensure_ascii=False),
+                      preco_original=max(0.0, min(9999.0, num(d.get('preco_original')))))
         acao = d.get('acao') or 'salvar'
         agora = int(time.time())
         if d.get('id'):
@@ -446,15 +528,16 @@ class Handler(SimpleHTTPRequestHandler):
             status = 'rascunho'
         if d.get('id'):
             c.execute('''UPDATE cursos SET titulo=?,resumo=?,descricao=?,categoria=?,nivel=?,preco=?,cor=?,modulos=?,
-                         status=?,atualizado=?, motivo=CASE WHEN ?='em_analise' THEN '' ELSE motivo END WHERE id=?''',
+                         aprender=?,requisitos=?,preco_original=?,status=?,atualizado=?, motivo=CASE WHEN ?='em_analise' THEN '' ELSE motivo END WHERE id=?''',
                       (*campos.values(), status, agora, status, d['id']))
             cid = d['id']
         else:
             slug = slugify(titulo)
             while c.execute('SELECT 1 FROM cursos WHERE slug=?', (slug,)).fetchone():
                 slug = slugify(titulo)[:52] + '-' + secrets.token_hex(2)
-            cur = c.execute('''INSERT INTO cursos (autor_id,slug,titulo,resumo,descricao,categoria,nivel,preco,cor,modulos,status,criado,atualizado)
-                               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+            cur = c.execute('''INSERT INTO cursos (autor_id,slug,titulo,resumo,descricao,categoria,nivel,preco,cor,modulos,
+                               aprender,requisitos,preco_original,status,criado,atualizado)
+                               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
                             (u['id'], slug, *campos.values(), status, agora, agora))
             cid = cur.lastrowid
         r = c.execute('SELECT slug, status FROM cursos WHERE id=?', (cid,)).fetchone()
